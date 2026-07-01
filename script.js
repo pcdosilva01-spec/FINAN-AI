@@ -485,7 +485,7 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
 
     extractMessageJSON(payload) {
         if (!payload || typeof payload !== "object") return null;
-        const choice = Array.isArray(payload.choices) ? payload.choices[0] : null;
+        const choice = Array.isArray(payload.choices) ? payload.choices[0] : payload.choices;
         if (!choice) return null;
 
         const content = choice?.message?.content || choice?.message?.text || choice?.text || choice?.delta?.content || choice?.delta?.text;
@@ -513,6 +513,21 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         const end = text.lastIndexOf("}");
         if (start === -1 || end === -1 || end <= start) return null;
         return text.slice(start, end + 1);
+    },
+
+    parseJSONText(raw) {
+        if (raw == null) return null;
+        const cleaned = this.cleanJSONText(raw);
+        let parsed = tryParseLooseJSON(cleaned);
+        if (parsed) return parsed;
+
+        const braced = this.extractBracedJSON(cleaned);
+        if (braced && braced !== cleaned) {
+            parsed = tryParseLooseJSON(braced);
+            if (parsed) return parsed;
+        }
+
+        return null;
     },
 
     findJSONText(payload) {
@@ -625,8 +640,9 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         let message = null;
 
         if (typeof payload === "string") {
-            extractedJSON = this.cleanJSONText(payload);
-            parsedJSON = tryParseLooseJSON(extractedJSON) || tryParseLooseJSON(this.extractBracedJSON(extractedJSON));
+            content = payload;
+            extractedJSON = this.cleanJSONText(content);
+            parsedJSON = this.parseJSONText(extractedJSON);
             if (!parsedJSON) {
                 console.log("validateProfilePayload erro: JSON inválido", { parsedBody: payload, content: extractedJSON });
                 return { profile: null, reason: "JSON inválido", details: payload };
@@ -634,20 +650,35 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
             candidate = this.parsePayloadObject(parsedJSON);
             if (!candidate) {
                 console.log("validateProfilePayload erro: campos ausentes", { parsedBody: payload, parsedJSON });
-                return { profile: null, reason: "Campos salary/expenses/confidence ausentes", details: parsedJSON };
+                return { profile: null, reason: "Campos salary/expenses ausentes", details: parsedJSON };
             }
         } else if (typeof payload === "object") {
             choices = payload.choices;
-            message = payload?.choices?.[0]?.message;
-            content = this.extractMessageJSON(payload) || this.extractTextFromPayload(payload);
+            message = choices && choices[0] ? choices[0].message : null;
+            const rawMessageContent = this.extractMessageJSON(payload);
+            const fallbackPayloadText = this.extractTextFromPayload(payload);
+            content = typeof rawMessageContent === "string" ? rawMessageContent : fallbackPayloadText;
+
             if (typeof content === "string") {
                 extractedJSON = this.cleanJSONText(content);
-                parsedJSON = tryParseLooseJSON(extractedJSON) || tryParseLooseJSON(this.extractBracedJSON(extractedJSON));
+                parsedJSON = this.parseJSONText(extractedJSON);
             }
 
-            candidate = this.parsePayloadObject(payload);
-            if (!candidate && parsedJSON) {
+            if (parsedJSON) {
                 candidate = this.parsePayloadObject(parsedJSON);
+            }
+
+            if (!candidate && typeof content === "string" && !parsedJSON) {
+                const fallbackText = this.findJSONText(content) || this.extractBracedJSON(content);
+                if (fallbackText) {
+                    extractedJSON = this.cleanJSONText(fallbackText);
+                    parsedJSON = this.parseJSONText(extractedJSON);
+                    candidate = parsedJSON ? this.parsePayloadObject(parsedJSON) : null;
+                }
+            }
+
+            if (!candidate) {
+                candidate = this.parsePayloadObject(payload);
             }
 
             if (!candidate) {
@@ -667,7 +698,6 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
 
         const salary = parseNumber(candidate.salary ?? candidate.income ?? candidate.salario ?? candidate.monthlysalary ?? candidate.grosssalary ?? candidate.renda ?? candidate.receita ?? candidate.remuneracao ?? candidate.pagamento);
         const expenses = parseNumber(candidate.expenses ?? candidate.cost ?? candidate.gastos ?? candidate.despesas ?? candidate.custo ?? candidate.gastosmensais ?? candidate.despesasmensais);
-        const confidence = parseNumber(candidate.confidence ?? candidate.confianca ?? candidate.confidencepct ?? candidate.confidencepercentage ?? candidate.confidence_percentage);
 
         if (!Number.isFinite(salary)) {
             return { profile: null, reason: "Campo salary ausente ou inválido", details: candidate };
@@ -675,10 +705,6 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
 
         if (!Number.isFinite(expenses)) {
             return { profile: null, reason: "Campo expenses ausente ou inválido", details: candidate };
-        }
-
-        if (!Number.isFinite(confidence)) {
-            return { profile: null, reason: "Campo confidence ausente ou inválido", details: candidate };
         }
 
         if (salary < 500 || salary > 150000) {
@@ -693,10 +719,6 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
             return { profile: null, reason: `expenses maior que salary (${expenses} > ${salary})`, details: candidate };
         }
 
-        if (confidence < 0 || confidence > 100) {
-            return { profile: null, reason: `confidence fora da faixa (0-100): ${confidence})`, details: candidate };
-        }
-
         const fallback = getLocalFallbackProfile(profession);
         const struggle = this.normalizeStruggle(candidate.struggle) || fallback.struggle;
         const dream = this.normalizeDream(candidate.dream) || fallback.dream;
@@ -706,8 +728,7 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
                 income: Math.round(salary),
                 cost: Math.round(expenses),
                 struggle,
-                dream,
-                confidence: Math.round(confidence)
+                dream
             }
         };
     },
@@ -721,27 +742,46 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
     },
 
     buildEstimationPrompt(profession, attempt = 1, lastReason = "") {
-        let prompt = `Você é um gerador de estimativas financeiras para profissões no Brasil.\n` +
-            `Responda APENAS com UM objeto JSON válido e NADA MAIS.\n` +
-            `Não use markdown, não use \`\`\`, não escreva explicações, não use listas.\n` +
-            `Retorne exatamente este formato:\n` +
+        let prompt = `Você é um estimador de renda brasileiro.
+` +
+            `Receberá apenas o nome de uma profissão.
+` +
+            `Use seu conhecimento para estimar a renda líquida mensal média no Brasil e os gastos mensais médios dessa profissão.
+` +
+            `RESPONDA APENAS COM JSON VÁLIDO. NÃO ENVIE EXPLICAÇÕES, NÃO USE MARKDOWN, NÃO USE \`\`\`json.
+` +
+            `O único conteúdo da resposta deve ser um objeto JSON com os campos abaixo.
+` +
+            `Formato obrigatório:
+` +
             `{
 ` +
-            `  "salary": 3200,\n` +
-            `  "expenses": 2200,\n` +
-            `  "confidence": 92\n` +
-            `}\n\n` +
-            `Campos obrigatórios:\n` +
-            `- salary: salário líquido mensal no Brasil (inteiro)\n` +
-            `- expenses: gastos mensais médios (inteiro, menor ou igual ao salário)\n` +
-            `- confidence: inteiro entre 0 e 100\n\n` +
-            `Opcionalmente, você pode incluir:\n` +
-            `- struggle: dificuldade principal (gastos_impulso, sem_controle, medo_investir, renda_baixa, dividas)\n` +
-            `- dream: maior sonho (imovel, carro, viagem, negocio, independencia, aposentadoria)\n\n` +
-            `Cargo: ${profession}\n`;
+            `  "salary": 4300,
+` +
+            `  "expenses": 2600
+` +
+            `}
+
+` +
+            `Regras:
+` +
+            `- salary = inteiro
+` +
+            `- expenses = inteiro
+` +
+            `- expenses nunca pode ser maior que salary
+` +
+            `- expenses deve ficar entre 50% e 90% do salário
+` +
+            `- se a profissão for desconhecida, estime o valor mais plausível
+
+` +
+            `Profissão: ${profession}
+`;
 
         if (attempt > 1 && lastReason) {
-            prompt += `A resposta anterior estava incorreta porque ${lastReason}. Envie novamente apenas o JSON solicitado.\n`;
+            prompt += `A resposta anterior estava incorreta porque ${lastReason}. Envie novamente apenas o JSON solicitado.
+`;
         }
 
         return prompt;
