@@ -361,6 +361,14 @@ const NimAI = {
 Use somente o contexto fornecido pelo usuário e a pergunta atual; não recicle frases genéricas ou seções prontas.
 Seu objetivo é analisar a pergunta do usuário e explicar claramente por que uma decisão está alinhada ou desalinhada com a situação financeira dele.
 
+Estilo de resposta:
+- Seja organizado, direto e profissional.
+- Use títulos curtos e claros como "Diagnóstico", "Impacto" e "Próximos passos".
+- Prefira parágrafos curtos e listas quando fizer sentido.
+- Não use tabelas Markdown.
+- Não repita o mesmo texto nem formatos de resposta anteriores.
+- Não apresente o perfil do usuário como um bloco de texto separado; use os dados apenas para análise.
+
 Você TEM os seguintes dados do usuário e deve usá-los sempre:
 - Nome: ${profile.name}
 - Idade: ${profile.age}
@@ -653,7 +661,7 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
                 firstChoice?.delta?.text ??
                 this.extractMessageJSON(payload);
             const fallbackPayloadText = this.extractTextFromPayload(payload);
-            content = typeof rawMessageContent === "string" ? rawMessageContent : fallbackPayloadText;
+            content = this.extractTextFromPayload(rawMessageContent) || this.extractTextFromPayload(firstChoice) || fallbackPayloadText;
 
             if (typeof content === "string") {
                 extractedJSON = this.cleanJSONText(content);
