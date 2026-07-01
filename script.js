@@ -806,11 +806,22 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
                         { role: "system", content: systemPrompt },
                         ...messages
                     ],
-                    temperature: 0.15,
-                    top_p: 0.8,
+                    temperature: 0.7,
+                    top_p: 0.9,
                     stream: true
                 })
             });
+
+            // B1: verifica erro HTTP antes de tentar ler o stream
+            if (!response.ok) {
+                const errText = await response.text().catch(() => "");
+                let msg = `Erro ${response.status}`;
+                if (response.status === 401) msg = "Chave de API inválida ou não configurada.";
+                else if (response.status === 429) msg = "Limite de requisições atingido. Aguarde alguns segundos.";
+                else if (response.status >= 500) msg = "Serviço de IA indisponível no momento. Tente novamente.";
+                onError(msg);
+                return;
+            }
 
             const reader  = response.body.getReader();
             const decoder = new TextDecoder("utf-8");
@@ -834,7 +845,7 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
                         const content = json?.choices?.[0]?.delta?.content;
                         if (content) onChunk(content);
                     } catch {
-                        // ignore
+                        // chunk malformado — ignora e continua
                     }
                 }
             }
@@ -842,7 +853,11 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
             onDone();
 
         } catch (err) {
-            if (err.name === "AbortError") return;
+            // B6: AbortError também chama onDone para liberar a UI
+            if (err.name === "AbortError") {
+                onDone();
+                return;
+            }
             onError(`Erro de conexão: ${err.message}`);
         } finally {
             clearTimeout(timeout);
@@ -906,11 +921,28 @@ const UI = {
         el("lbl-job").textContent = `${p.profession} · ${p.age} anos`;
         el("lbl-income").textContent = fmtCompact(p.income);
         el("lbl-cost").textContent = fmtCompact(p.cost);
-        el("lbl-surplus").textContent = fmtCompact(m.surplus);
 
-        // Cor da Sobra
         const surplusEl = el("lbl-surplus");
+        surplusEl.textContent = fmtCompact(Math.abs(m.surplus));
         surplusEl.className = m.surplus >= 0 ? "c-green" : "c-red";
+
+        // Card de diagnóstico (elementos novos do HTML)
+        const gradeEl = el("lbl-grade");
+        if (gradeEl) {
+            gradeEl.textContent = m.grade;
+            gradeEl.className = "grade-badge grade-" + m.grade.replace("+", "plus");
+        }
+        const summaryEl = el("lbl-summary");
+        if (summaryEl) summaryEl.textContent = m.summary;
+
+        const reservePctEl = el("lbl-reserve-pct");
+        if (reservePctEl) reservePctEl.textContent = Math.round(m.reservePct * 100) + "%";
+
+        const reserveBarEl = el("lbl-reserve-bar");
+        if (reserveBarEl) {
+            reserveBarEl.style.width = Math.round(m.reservePct * 100) + "%";
+            reserveBarEl.className = "reserve-bar-fill " + (m.reservePct >= 1 ? "bar-green" : m.reservePct >= 0.5 ? "bar-amber" : "bar-red");
+        }
     },
 
     setWizardStep(value) {
@@ -1073,6 +1105,14 @@ const UI = {
         );
     },
 
+    _doReset() {
+        Storage.clearState();
+        this.state = null;
+        this.chatHistory = [];
+        el("chat-feed").innerHTML = "";
+        this.showWizard();
+    },
+
     filterToastTag(text) {
         const regex = /\[TOAST:\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^\]]+)\]/i;
         const match = text.match(regex);
@@ -1150,6 +1190,21 @@ const UI = {
     // Botão de estimar perfil diretamente no Passo 2
     el("btn-estimate-profile").addEventListener("click", () => triggerIAEstimation());
 
+    // Preview de sobra em tempo real no passo 3
+    ["f-income", "f-cost"].forEach(id => {
+        el(id).addEventListener("input", () => {
+            const income  = parseFloat(el("f-income").value) || 0;
+            const cost    = parseFloat(el("f-cost").value)   || 0;
+            const preview = el("surplus-preview");
+            if (!preview || (!income && !cost)) { if (preview) preview.textContent = ""; return; }
+            const surplus = income - cost;
+            preview.textContent = surplus >= 0
+                ? `✔ Sobra mensal: ${fmt(surplus)}`
+                : `⚠️ Gastos superam a renda em ${fmt(Math.abs(surplus))} — revise os valores`;
+            preview.className = "surplus-preview " + (surplus >= 0 ? "positive" : "negative");
+        });
+    });
+
     el("chat-form").addEventListener("submit", (e) => {
         e.preventDefault();
         const q = el("chat-input").value.trim();
@@ -1158,13 +1213,39 @@ const UI = {
     });
 
     el("btn-reset").addEventListener("click", () => {
-        if (!confirm("Deseja apagar os dados salvos e recomeçar a análise?")) return;
-        Storage.clearState();
-        this.state = null;
-        this.chatHistory = [];
-        el("chat-feed").innerHTML = "";
-        this.showWizard();
+        const modal = el("confirm-modal");
+        if (modal) {
+            modal.classList.remove("hidden");
+            el("modal-confirm").focus();
+        } else {
+            // fallback se o modal não existir
+            if (!confirm("Deseja apagar os dados salvos e recomeçar a análise?")) return;
+            this._doReset();
+        }
     });
+
+    const modalCancel = el("modal-cancel");
+    if (modalCancel) {
+        modalCancel.addEventListener("click", () => {
+            el("confirm-modal").classList.add("hidden");
+        });
+    }
+
+    const modalConfirm = el("modal-confirm");
+    if (modalConfirm) {
+        modalConfirm.addEventListener("click", () => {
+            el("confirm-modal").classList.add("hidden");
+            this._doReset();
+        });
+    }
+
+    // Fecha modal ao clicar no overlay
+    const modalOverlay = el("confirm-modal");
+    if (modalOverlay) {
+        modalOverlay.addEventListener("click", (e) => {
+            if (e.target === modalOverlay) modalOverlay.classList.add("hidden");
+        });
+    }
 
     const toastClose = el("toast-close");
     if (toastClose) {
@@ -1188,7 +1269,9 @@ function updateWizardBar() {
     el("wiz-next").textContent = step === WIZARD_TOTAL ? "Ver Diagnóstico ✦" : "Avançar →";
 
     if (step === 2) {
-        el("wiz-next").style.display = "none"; // Usuário deve clicar em "Estimar com IA"
+        // B2/U5: só esconde "Avançar" se o perfil ainda não foi estimado
+        const alreadyEstimated = !!(el("f-income").value);
+        el("wiz-next").style.display = alreadyEstimated ? "" : "none";
     } else {
         el("wiz-next").style.display = "";
     }

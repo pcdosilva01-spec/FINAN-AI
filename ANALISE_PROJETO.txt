@@ -1,0 +1,815 @@
+================================================================================
+ANÁLISE COMPLETA DO PROJETO — FINLIFE AI
+================================================================================
+Documento gerado para revisão do projeto. Cobre cada arquivo, cada função,
+o que faz sentido, o que não faz, o que pode melhorar e o que pode ser cortado.
+================================================================================
+
+
+================================================================================
+PARTE 1 — VISÃO GERAL DO PROJETO
+================================================================================
+
+O que é o projeto?
+------------------
+FinLife AI é uma aplicação web de consultoria financeira pessoal. O usuário
+preenche um wizard com seus dados (nome, idade, profissão, renda, gastos,
+reserva, sonho e dificuldade), e depois conversa com uma IA chamada "Sofia"
+que responde perguntas financeiras personalizadas com base nesses dados.
+
+Tecnologias usadas:
+-------------------
+- HTML puro (index.html) — estrutura da interface
+- CSS puro (style.css) — visual, dark mode, responsivo
+- JavaScript puro (script.js) — toda a lógica do app
+- Node.js (server.js e api/chat.js) — proxy para a API da NVIDIA NIM
+- Vercel — hospedagem e serverless functions
+
+Como o projeto funciona na prática:
+------------------------------------
+1. Usuário abre o site e vê a tela Splash
+2. Clica em "Iniciar Diagnóstico" e vai para o Wizard (4 passos)
+3. Passo 1: digita nome e idade
+4. Passo 2: digita a profissão e clica em "Estimar Perfil" — o app busca
+   dados locais de salário/gastos para aquela profissão
+5. Passo 3: confirma ou edita renda, gastos e reserva atual
+6. Passo 4: confirma ou edita meta financeira, sonho e dificuldade principal
+7. Ao finalizar, vai para o app principal com sidebar + chat
+8. A Sofia exibe um diagnóstico inicial local (sem API)
+9. O usuário digita perguntas e a Sofia responde via API da NVIDIA NIM (streaming)
+
+Onde os dados ficam salvos:
+----------------------------
+Tudo fica no localStorage do navegador. Não existe banco de dados, não existe
+login, não existe servidor guardando nada. Se o usuário limpar o navegador,
+perde tudo. A chave usada é "finlife_v6_state".
+
+Arquitetura resumida:
+---------------------
+[Navegador]
+  index.html → carrega style.css e script.js
+  script.js → toda a lógica (UI, wizard, chat, IA, storage)
+
+[Servidor / Vercel]
+  api/chat.js → recebe POST do frontend, repassa para a API da NVIDIA NIM
+  server.js → versão local do mesmo proxy (para rodar com Node.js localmente)
+
+A separação faz sentido: o proxy existe para não expor a API key no frontend.
+
+
+================================================================================
+PARTE 2 — ARQUIVO: index.html
+================================================================================
+
+O que ele faz:
+--------------
+Define toda a estrutura visual do app em HTML estático. Não tem template
+engine, não tem framework. É HTML puro com IDs que o JavaScript usa para
+manipular o DOM.
+
+Estrutura de telas (screens):
+------------------------------
+O app tem 3 "telas" que são divs com a classe .screen. Só uma fica visível
+por vez (a que tem a classe .active). A troca é feita pelo JavaScript.
+
+  #splash   — tela inicial com logo e botão "Iniciar Diagnóstico"
+  #wizard   — formulário de cadastro em 4 passos
+  #app      — interface principal com sidebar + chat
+
+Elementos importantes e seus IDs:
+-----------------------------------
+
+SPLASH:
+  btn-start → botão que inicia o wizard
+
+WIZARD:
+  wiz-bar / wiz-bar-fill → barra de progresso dos passos
+  wiz-step-label → texto "Passo X de 4"
+  wiz-prev / wiz-next → botões de navegação
+  ws-1, ws-2, ws-3, ws-4 → os 4 passos do wizard (divs)
+  f-name → input nome
+  f-age → input idade
+  f-prof → input profissão
+  btn-estimate-profile → botão "Estimar Perfil com IA"
+  f-income → input renda mensal
+  f-cost → input gastos mensais
+  f-reserve → input reserva atual
+  f-goal → input meta de patrimônio
+  f-dream → select sonho
+  f-struggle → select dificuldade
+
+APP PRINCIPAL:
+  lbl-avatar → letra inicial do nome na sidebar
+  lbl-name → nome do usuário na sidebar
+  lbl-job → profissão + idade na sidebar
+  lbl-income → renda formatada na sidebar
+  lbl-cost → gastos formatados na sidebar
+  lbl-surplus → sobra mensal na sidebar (verde ou vermelho)
+  btn-reset → botão "Nova Análise"
+  chat-feed → área onde as mensagens aparecem
+  chat-form → formulário do input de chat
+  chat-input → campo de texto do chat
+  btn-send → botão de enviar mensagem
+
+TOAST:
+  toast → container da notificação flutuante
+  toast-icon → emoji do tipo (✅ ⚠️ ❌ 💡)
+  toast-title → título da notificação
+  toast-body → texto da notificação
+  toast-close → botão X para fechar
+  toast-bar-fill → barra de progresso do tempo
+
+O que está bom:
+---------------
+- Estrutura limpa e bem organizada
+- IDs descritivos e consistentes
+- Acessibilidade básica presente (aria-live, aria-label, role="log")
+- Sem dependências externas (zero bibliotecas, zero CDN)
+
+O que pode melhorar:
+--------------------
+- O campo f-reserve não tem "required", então o usuário pode deixar em branco
+  e o app usa 0 — isso é intencional mas não está documentado no HTML
+- O select f-dream tem uma option disabled como placeholder, mas o f-struggle
+  também — se o usuário não selecionar nada e clicar em avançar, o required
+  vai pegar, mas a mensagem de erro não é clara
+- Não tem <meta og:> para compartilhamento em redes sociais
+- Não tem favicon real (usa um data:image vazio)
+
+O que pode ser cortado:
+-----------------------
+- Os dois glows ambientais (.glow-a e .glow-b) são puramente decorativos.
+  Não prejudicam, mas adicionam dois elementos no DOM sem função.
+
+
+
+================================================================================
+PARTE 3 — ARQUIVO: script.js (LÓGICA PRINCIPAL)
+================================================================================
+
+Este é o arquivo mais importante. Tem ~1400 linhas e contém absolutamente
+tudo: constantes, utilitários, storage, toast, análise financeira, IA,
+interface e wizard. Está dividido em blocos comentados.
+
+--------------------------------------------------------------------------------
+BLOCO 1 — CONSTANTES DE CONFIGURAÇÃO
+--------------------------------------------------------------------------------
+
+PROXY_URL = "/api/chat"
+  Endereço do proxy serverless. Correto. Usa caminho relativo, então funciona
+  tanto no Vercel quanto localmente com o server.js.
+
+PROFESSIONS = { estudante, desenvolvedor, designer... }
+  Dicionário de profissões com labels em português.
+  PROBLEMA: esse objeto existe mas nunca é usado em nenhum lugar do código.
+  Pode ser deletado sem afetar nada.
+
+DREAMS = { imovel, carro, viagem, negocio, independencia, aposentadoria }
+  Mapeia chaves para textos legíveis. Usado na intro da Sofia e no prompt
+  da IA. Faz sentido e está bem feito.
+
+STRUGGLES = { gastos_impulso, sem_controle, medo_investir, renda_baixa, dividas }
+  Mesmo padrão do DREAMS. Usado no prompt da IA. Faz sentido.
+
+LOCAL_FALLBACK_PROFILES = [ array com ~33 profissões ]
+  Lista de perfis locais com salário médio, gasto médio, dificuldade e sonho
+  típicos para cada profissão. É o coração da estimativa de perfil.
+  
+  O que está bom: cobre bem as profissões mais comuns do Brasil.
+  
+  PROBLEMA 1: tem "psicologo" duplicado — aparece duas vezes na lista.
+  O segundo nunca vai ser alcançado porque o primeiro já retorna antes.
+  
+  PROBLEMA 2: tem "motoboy" duplicado dentro do mesmo array de terms.
+  
+  PROBLEMA 3: os valores de salário são fixos e nunca atualizados. Um
+  desenvolvedor está com R$ 9.200 — pode estar desatualizado dependendo
+  do ano. Não é um bug, mas é uma limitação conhecida.
+  
+  PROBLEMA 4: a busca por termos é muito ampla. "analista" vai bater em
+  qualquer profissão que contenha essa palavra, mesmo que seja "analista
+  de RH" ou "analista de qualidade" — que têm salários bem diferentes.
+
+GENERIC_FALLBACK_PROFILE = { salaryAvg: 3200, costAvg: 2200... }
+  Perfil genérico usado quando nenhuma profissão é reconhecida.
+  Faz sentido existir. Valores razoáveis para o Brasil.
+
+--------------------------------------------------------------------------------
+BLOCO 2 — FUNÇÕES UTILITÁRIAS GLOBAIS
+--------------------------------------------------------------------------------
+
+normalizeText(value)
+  Remove acentos, caracteres especiais, espaços duplos e converte para
+  minúsculas. Usada para comparar profissões sem se preocupar com acentos.
+  Está bem feita e é necessária.
+
+parseNumber(value)
+  Converte strings de valores monetários para número. Lida com formatos
+  brasileiros (1.000,00) e americanos (1,000.00).
+  Está bem feita. É necessária para processar respostas da IA.
+
+tryParseLooseJSON(raw)
+  Tenta fazer parse de JSON "sujo" — remove markdown code blocks, tenta
+  corrigir aspas simples, vírgulas extras, etc.
+  
+  PROBLEMA: essa função existe para processar respostas da IA que vinham
+  em JSON. Mas desde que a estimativa de perfil passou a usar dados locais,
+  essa função nunca mais é chamada no fluxo principal. Pode ser removida
+  ou mantida apenas se a estimativa via IA for reativada no futuro.
+
+collectHeaders(headers)
+  Converte um objeto Headers do fetch para um objeto JS simples.
+  PROBLEMA: essa função existe no código mas nunca é chamada em lugar nenhum.
+  Pode ser deletada sem afetar nada.
+
+getLocalFallbackProfile(profession)
+  Busca o perfil local para uma profissão. Primeiro tenta match exato,
+  depois match parcial, depois score por quantidade de termos encontrados.
+  
+  Está bem feita. A lógica de fallback em camadas é boa.
+  
+  PROBLEMA menor: a busca por substring é muito permissiva. "medico" vai
+  bater em "biomédico" por exemplo, o que pode dar um salário errado.
+
+--------------------------------------------------------------------------------
+BLOCO 3 — UTILITÁRIOS DE FORMATAÇÃO
+--------------------------------------------------------------------------------
+
+fmt(v)
+  Formata número como moeda brasileira (R$ 1.500,00).
+  Simples e necessário.
+
+fmtCompact(value)
+  Formata valores grandes de forma compacta (R$ 9,2K, R$ 1,5M).
+  Usado na sidebar. Faz sentido para não quebrar o layout com números longos.
+
+el(id)
+  Atalho para document.getElementById(id).
+  Simples e útil. Usado em todo o código.
+
+escapeHTML(value)
+  Escapa caracteres HTML para evitar XSS ao inserir texto do usuário no DOM.
+  Necessário e correto.
+
+--------------------------------------------------------------------------------
+BLOCO 4 — STORAGE
+--------------------------------------------------------------------------------
+
+Storage = { KEY_STATE, KEY_API, saveState, loadState, clearState, saveKey, loadKey, clearKey }
+
+  Encapsula o localStorage. Faz sentido como objeto separado.
+  
+  KEY_STATE = "finlife_v6_state" → salva o estado completo do app
+  KEY_API = "finlife_v6_apikey" → salva uma chave de API customizada do usuário
+  
+  O que está bom: tem try/catch em todas as operações, então não quebra
+  se o localStorage estiver bloqueado (modo privado em alguns browsers).
+  
+  PROBLEMA: KEY_API existe para o usuário colocar sua própria chave da NVIDIA.
+  Mas não existe nenhum campo na interface para o usuário digitar essa chave.
+  Ou seja, saveKey e loadKey existem mas nunca são chamados pela UI.
+  Pode ser uma feature planejada que nunca foi implementada.
+  
+  O estado salvo inclui: profile (nome, idade, profissão, renda, gastos,
+  meta, sonho, dificuldade), finances (reserva, netWorth) e history
+  (últimas 20 mensagens do chat).
+
+--------------------------------------------------------------------------------
+BLOCO 5 — TOAST NOTIFICATIONS
+--------------------------------------------------------------------------------
+
+Toast = { _t, _i, show, hide }
+
+  Sistema de notificações flutuantes no canto inferior direito.
+  
+  show(type, title, body)
+    type pode ser: "green", "amber", "red", "info"
+    Mostra o toast com ícone, título e mensagem.
+    Tem uma barra de progresso que esvazia em 4 segundos.
+    Fecha automaticamente após 4 segundos.
+  
+  hide()
+    Fecha o toast manualmente (botão X ou timeout).
+  
+  O que está bom: limpa timers anteriores antes de mostrar novo toast,
+  então não acumula múltiplos toasts.
+  
+  Onde é usado:
+  - Estimativa de perfil: "Analisando perfil..."
+  - Perfil estimado com sucesso: "Perfil Estimado!"
+  - Erro na estimativa: "Falha de conexão..."
+  - Validação do wizard: "Por favor, digite sua ocupação primeiro."
+  - Respostas da IA podem incluir [TOAST: tipo | título | mensagem] no texto
+
+--------------------------------------------------------------------------------
+BLOCO 6 — ANALYZER
+--------------------------------------------------------------------------------
+
+Analyzer = { compute(p, f) }
+
+  Calcula métricas financeiras a partir do perfil (p) e finanças (f).
+  
+  O que calcula:
+  - surplus: renda - gastos (sobra mensal)
+  - savingRate: % da renda que sobra
+  - idealReserve: gastos * 6 (reserva de emergência ideal = 6 meses de gastos)
+  - reservePct: quanto da reserva ideal o usuário já tem (0 a 1)
+  - grade: nota de A+ até D baseada na sobra e reserva
+  - summary: texto descritivo da situação
+  - conclusion: sugestão da Sofia
+  
+  Lógica das notas:
+  - D: sobra negativa (gastando mais do que ganha)
+  - C: sobra positiva mas menos de 10% da renda
+  - B: economiza entre 10% e 20% da renda
+  - A: economiza 20%+ e tem pelo menos 50% da reserva ideal
+  - A+: economiza 35%+ e tem 100% da reserva ideal
+  
+  O que está bom: lógica simples, clara e financeiramente correta.
+  A regra dos 6 meses de reserva é padrão no mercado financeiro.
+  
+  PROBLEMA: summary e conclusion são calculados mas nunca exibidos na
+  interface atual. O sidebar não mostra mais o card de diagnóstico com
+  grade e summary — esses dados existem mas ficam invisíveis.
+  Ou você reativa o card de diagnóstico na sidebar, ou remove summary
+  e conclusion do Analyzer para não calcular à toa.
+
+--------------------------------------------------------------------------------
+BLOCO 7 — NimAI (SERVIÇO DE IA)
+--------------------------------------------------------------------------------
+
+Este é o bloco mais complexo e também o mais problemático em termos de
+código morto. Vou detalhar cada método:
+
+getUserKey()
+  Lê a chave de API customizada do localStorage.
+  Funciona, mas como dito no Storage, não existe UI para o usuário
+  definir essa chave. Código que não tem como ser ativado pelo usuário.
+
+buildSystemPrompt(profile, finances, metrics)
+  Monta o prompt do sistema enviado para a IA antes de cada conversa.
+  Define o personagem Sofia, as regras de resposta e injeta os dados
+  do usuário (renda, gastos, sobra, reserva, sonho, dificuldade).
+  
+  O que está bom: prompt bem estruturado, com regras claras para a IA
+  não repetir formatos e responder de forma personalizada.
+  
+  PROBLEMA: as variáveis idealReserve e reservePct são calculadas mas
+  nunca inseridas no prompt. Só surplus é usado. Pequena inconsistência.
+
+normalizeFieldName(key)
+  Mapeia nomes de campos em vários idiomas/formatos para nomes canônicos.
+  Ex: "salario", "rendamensal", "monthlySalary" → todos viram "salary".
+  
+  PROBLEMA: esse método existe para processar respostas JSON da IA.
+  Desde que a estimativa passou a ser local, ele nunca é chamado.
+  Código morto no fluxo atual.
+
+extractTextFromPayload(payload)
+  Extrai texto de respostas da API em vários formatos possíveis.
+  É uma função enorme (~60 linhas) que tenta extrair texto de qualquer
+  estrutura de resposta imaginável.
+  
+  PROBLEMA: usada apenas no streamMessage para processar chunks de
+  streaming. A maior parte da lógica (choices, output, data, response,
+  result) nunca é atingida no fluxo de streaming atual, porque o
+  streaming já vem em formato padrão OpenAI. Código defensivo demais.
+
+extractMessageJSON, cleanJSONText, extractBracedJSON, parseJSONText,
+findJSONText, parsePayloadObject, normalizeStruggle, normalizeDream,
+validateProfilePayload, parseProfilePayload
+  
+  TODOS ESSES MÉTODOS são código morto no estado atual do projeto.
+  Eles existiam para processar respostas JSON da IA quando a estimativa
+  de perfil era feita via API. Desde que a estimativa passou a ser local,
+  nenhum deles é chamado.
+  
+  Juntos somam aproximadamente 250 linhas de código que não fazem nada.
+  Podem ser deletados sem afetar nada no app.
+
+safeParseResponseBody(rawText)
+  Tenta fazer JSON.parse de uma string, retorna a string se falhar.
+  Também código morto no fluxo atual.
+
+buildEstimationPrompt(profession, attempt, lastReason)
+  Monta o prompt para pedir estimativa de salário à IA.
+  Código morto — estimateProfile agora usa apenas dados locais.
+
+extractSalaryFromText(text)
+  Extrai um número de salário de um texto livre.
+  Código morto — não é mais chamado.
+
+localEstimateProfile(profession)
+  Busca o perfil local e retorna income, cost, struggle, dream.
+  ESTE é o método que realmente funciona e é usado.
+
+estimateProfile(profession)
+  Atualmente só chama localEstimateProfile. A versão anterior fazia
+  uma chamada à API. A simplificação foi correta.
+
+streamMessage(systemPrompt, messages, onChunk, onDone, onError)
+  Faz a chamada real à API via streaming SSE (Server-Sent Events).
+  É o único método do NimAI que realmente importa para o chat.
+  
+  Funciona assim:
+  1. Monta o body com system prompt + histórico de mensagens
+  2. Faz POST para /api/chat com stream: true
+  3. Lê a resposta chunk por chunk
+  4. Para cada linha "data: {...}", extrai o delta de texto
+  5. Chama onChunk com cada pedaço de texto
+  6. Quando termina, chama onDone
+  7. Se der erro, chama onError
+  
+  O que está bom: implementação correta de SSE, com AbortController
+  para timeout de 25 segundos.
+  
+  PROBLEMA: se a API retornar um erro HTTP (401, 429, 500), o código
+  não trata isso — tenta ler o body como streaming e provavelmente
+  não chama onError, deixando o chat travado. Deveria checar
+  response.ok antes de tentar ler o stream.
+
+
+--------------------------------------------------------------------------------
+BLOCO 8 — UI CONTROLLER
+--------------------------------------------------------------------------------
+
+UI = { state, chatHistory, isSending, isEstimating, ... }
+
+  Objeto central que controla toda a interface. Tem estado interno e
+  métodos para cada ação do usuário.
+
+state
+  Objeto com { profile, finances }. É o dado central do app.
+  profile: { name, age, profession, income, cost, goal, dream, struggle }
+  finances: { reserve, netWorth }
+  
+  PROBLEMA: netWorth é sempre igual a reserve. Existe no objeto mas nunca
+  é calculado de forma diferente. Se no futuro quiser adicionar outros
+  ativos (investimentos, etc), faz sentido. Por ora é redundante.
+
+chatHistory
+  Array de { role, content } — histórico de mensagens enviadas para a IA.
+  Salva as últimas 20 mensagens no localStorage.
+  Enviado para a API nas últimas 10 mensagens (contexto da conversa).
+
+init()
+  Inicializa o app. Verifica se tem estado salvo no localStorage.
+  Se sim, vai direto para o app. Se não, mostra a splash.
+  Correto e bem feito.
+
+showScreen(id) / showSplash() / showWizard() / showApp()
+  Controla qual tela está visível. Remove "active" de todas e adiciona
+  na tela alvo. Simples e funciona bem.
+
+syncSidebar()
+  Atualiza os dados exibidos na sidebar (nome, profissão, renda, gastos,
+  sobra). Chamado ao entrar no app e após qualquer mudança de estado.
+  Correto.
+
+setWizardStep(value)
+  Muda o passo atual do wizard. Quando vai para o passo 4, recalcula
+  automaticamente a meta sugerida com base nos valores do passo 3.
+  Faz sentido e resolve o bug que existia antes.
+
+renderChatHistory()
+  Renderiza o histórico salvo quando o usuário volta ao app.
+  Correto.
+
+appendAIIntro()
+  Exibe a mensagem inicial da Sofia ao entrar no app.
+  Calcula sobra, prazo para meta, e dicas baseadas na dificuldade.
+  Tudo local, sem API. Bem feito.
+  
+  PROBLEMA menor: se o usuário voltar ao app (já tem histórico salvo),
+  essa função não é chamada — o histórico é renderizado no lugar.
+  Mas se o histórico estiver vazio por algum motivo, ela é chamada.
+  Comportamento correto.
+
+saveCurrentState()
+  Salva estado + histórico no localStorage após cada mensagem.
+  Correto.
+
+appendMessage(role, sender, html)
+  Cria um balão de mensagem no chat feed.
+  
+  PROBLEMA de segurança: para mensagens do usuário (role === "user"),
+  o código faz escapeHTML(html) — correto. Mas o parâmetro já se chama
+  "html" e vem de userText, que já é texto puro. Funciona, mas o nome
+  do parâmetro é confuso — deveria se chamar "content" para deixar
+  claro que para user é texto, para ai é HTML.
+
+sendMessage(userText)
+  Método principal do chat. Fluxo:
+  1. Desabilita input e botão
+  2. Adiciona mensagem do usuário no feed
+  3. Cria balão vazio da Sofia com "Analisando seus dados..."
+  4. Inicia timer que troca o texto do placeholder a cada 1,2s
+  5. Chama NimAI.streamMessage com o prompt e histórico
+  6. A cada chunk recebido, atualiza o balão com o texto parcial
+  7. Ao terminar, remove cursor, verifica se tem [TOAST:...] no texto
+  8. Salva resposta no histórico e reabilita o input
+  
+  O que está bom: experiência de streaming bem implementada, scroll
+  inteligente (só rola se o usuário já estava no final).
+  
+  PROBLEMA: se a API retornar erro HTTP (não AbortError), o onError
+  é chamado e mostra a mensagem de erro no balão. Mas isSending fica
+  false e os botões são reabilitados — isso está correto. Porém o
+  histórico não salva a mensagem de erro, então o usuário pode tentar
+  de novo sem problemas. Comportamento aceitável.
+
+filterToastTag(text)
+  Procura o padrão [TOAST: tipo | título | mensagem] no texto da IA.
+  Se encontrar, remove do texto e retorna separado para exibir como toast.
+  
+  Ideia interessante mas problemática na prática: a IA raramente vai
+  gerar esse formato espontaneamente, e o prompt atual não instrui a IA
+  a usar esse formato. Na prática, esse filtro nunca dispara.
+  Pode ser removido ou o prompt precisa instruir a IA a usá-lo.
+
+renderMarkdown(raw)
+  Converte Markdown básico para HTML para exibir as respostas da Sofia.
+  Suporta: h1/h2/h3, blockquote, listas, negrito, itálico, código inline,
+  blocos de código, ✔/❌/✅/⚠️ com classes coloridas.
+  
+  O que está bom: funciona bem para o caso de uso.
+  
+  PROBLEMA 1: tem regex hardcoded para títulos específicos como
+  "## 📊 Seu diagnóstico" e "## ✅ O que você fez certo". Esses títulos
+  eram do prompt antigo que foi removido. Essas linhas são código morto.
+  
+  PROBLEMA 2: a regex de listas agrupa todos os <li> em um único <ul>,
+  mas se houver duas listas separadas por texto no meio, elas vão ser
+  fundidas em uma só. Bug raro mas possível.
+  
+  PROBLEMA 3: escapa HTML antes de processar Markdown, o que é correto
+  para segurança. Mas isso significa que emojis e caracteres especiais
+  no texto da IA passam sem problema.
+
+bindEvents()
+  Registra todos os event listeners. Bem organizado.
+  
+  PROBLEMA: o confirm() nativo do browser para "Nova Análise" é feio
+  e inconsistente entre browsers. Poderia ser um modal customizado.
+
+--------------------------------------------------------------------------------
+BLOCO 9 — WIZARD (FUNÇÕES GLOBAIS)
+--------------------------------------------------------------------------------
+
+WIZARD_TOTAL = 4
+  Constante com o número de passos. Correto.
+
+updateWizardBar()
+  Atualiza a barra de progresso, o label "Passo X de 4", os botões
+  prev/next e qual step está visível.
+  
+  PROBLEMA: no passo 2, o botão "Avançar" é escondido (display: none)
+  para forçar o usuário a clicar em "Estimar Perfil". Mas se o usuário
+  clicar em "Voltar" do passo 3 para o passo 2, o botão "Avançar" some
+  e ele fica preso — precisa clicar em "Estimar Perfil" de novo mesmo
+  que já tenha estimado. Comportamento confuso.
+
+validateCurrentStep()
+  Verifica se todos os campos required do passo atual estão preenchidos.
+  Adiciona classe "error" nos campos vazios.
+  Funciona, mas não mostra mensagem de texto explicando o erro.
+
+triggerIAEstimation()
+  Chamado ao clicar em "Estimar Perfil com IA".
+  Agora usa apenas dados locais (localEstimateProfile).
+  Preenche f-income, f-cost, f-struggle, f-dream e avança para o passo 3.
+  
+  PROBLEMA: o nome da função ainda diz "IA" mas não usa mais IA.
+  Deveria se chamar triggerProfileEstimation ou estimateFromLocal.
+  
+  PROBLEMA: o bloco catch nunca vai ser atingido porque localEstimateProfile
+  é síncrono e não lança exceções. O try/catch é código morto agora.
+
+advanceWizard(dir)
+  Avança ou volta um passo. Valida o passo atual antes de avançar.
+  Se estiver no último passo e avançar, chama finishWizard.
+
+finishWizard()
+  Coleta todos os valores dos campos, monta o objeto state e salva.
+  Chama UI.showApp() para ir para o app principal.
+  Correto e simples.
+
+
+================================================================================
+PARTE 4 — ARQUIVO: style.css
+================================================================================
+
+O que ele faz:
+--------------
+Define todo o visual do app. Dark mode por padrão, paleta de cores
+consistente via variáveis CSS, layout com flexbox, animações suaves.
+
+Design System (variáveis):
+---------------------------
+--bg, --bg-2: fundos escuros
+--glass, --glass-hov: efeito vidro para cards
+--border, --border-hov: bordas sutis
+--cyan, --purple, --green, --amber, --red: cores de destaque
+--t1, --t2, --t3: hierarquia de texto (branco → cinza claro → cinza escuro)
+--space-*: espaçamentos padronizados (mas pouco usados diretamente)
+--r-sm, --r-md, --r-lg: border-radius padronizados
+--sidebar-w: largura da sidebar (320px)
+--font, --font-h: fontes do sistema
+
+O que está bom:
+---------------
+- Variáveis CSS bem definidas e consistentes
+- Responsivo com media queries para 900px e 580px
+- Animações leves (fadeUp, slideIn, pulse, blink)
+- Scrollbar customizada e discreta
+- Efeito glass bem implementado com backdrop-filter
+
+O que pode melhorar:
+--------------------
+- As variáveis --space-* existem mas quase não são usadas no CSS.
+  A maioria dos espaçamentos está hardcoded (padding: 24px, gap: 16px).
+  Ou usa as variáveis em todo lugar, ou remove as variáveis.
+
+- .diagnosis-header, .diagnosis-title, .grade-badge, .diagnosis-summary,
+  .diagnosis-content, .card-label, .metric-list, .metric-item, .metric-top,
+  .metric-bar-wrap, .metric-bar, .diagnosis-conclusion
+  Todas essas classes existem no CSS mas não têm elementos correspondentes
+  no HTML atual. São resquícios de uma versão anterior que tinha um card
+  de diagnóstico na sidebar. Podem ser deletadas — são ~80 linhas de CSS morto.
+
+- O comentário "DIAGNOSTIC CONTAINER STYLES" no final do arquivo está vazio.
+  Pode ser removido.
+
+- chat-header-bar não tem estilo definido no CSS, mas existe no HTML.
+  O layout funciona porque herda estilos do pai, mas é inconsistente.
+
+
+================================================================================
+PARTE 5 — ARQUIVO: api/chat.js (PROXY SERVERLESS)
+================================================================================
+
+O que ele faz:
+--------------
+É uma Vercel Serverless Function. Recebe POST do frontend, repassa para
+a API da NVIDIA NIM e devolve a resposta (streaming ou não).
+
+Por que existe:
+---------------
+Para não expor a API key no frontend. A key fica em variável de ambiente
+no Vercel (NVIDIA_NIM_API_KEY) e nunca chega ao browser.
+
+Fluxo:
+------
+1. Recebe POST com body JSON
+2. Lê a API key do header X-Override-Key ou da env NVIDIA_NIM_API_KEY
+3. Injeta o model ID (NVIDIA_NIM_MODEL_ID ou "openai/gpt-4o-mini")
+4. Faz proxy da requisição para integrate.api.nvidia.com
+5. Faz pipe da resposta de volta para o cliente
+
+O que está bom:
+---------------
+- CORS configurado corretamente
+- Trata OPTIONS (preflight) corretamente
+- Pipe direto da resposta (não bufferiza tudo na memória)
+- Trata erro de conexão com o servidor da NVIDIA
+
+O que pode melhorar:
+--------------------
+- Não valida o body recebido além do JSON.parse básico. Um body malformado
+  ou com campos inesperados vai direto para a NVIDIA sem sanitização.
+
+- Não tem rate limiting. Qualquer pessoa que descobrir a URL do proxy pode
+  fazer requisições ilimitadas usando sua API key.
+
+- Se NVIDIA_NIM_API_KEY não estiver configurada, retorna 401. Mas a mensagem
+  de erro "Nenhuma API key configurada." vai aparecer no chat como erro de
+  conexão, sem deixar claro para o usuário o que fazer.
+
+- O model ID padrão é "openai/gpt-4o-mini" — mas o endpoint é da NVIDIA NIM,
+  não da OpenAI. Isso funciona porque a NVIDIA NIM tem compatibilidade com
+  a API da OpenAI, mas o nome do modelo pode confundir quem for manter o código.
+
+
+================================================================================
+PARTE 6 — ARQUIVO: server.js
+================================================================================
+
+É a versão local do proxy para rodar com "node server.js" durante
+desenvolvimento. Faz exatamente a mesma coisa que api/chat.js mas
+como servidor HTTP na porta 3000.
+
+PROBLEMA: tem duplicação de lógica com api/chat.js. Se mudar algo
+no proxy (ex: adicionar rate limiting), precisa mudar nos dois arquivos.
+Poderia extrair a lógica para um módulo compartilhado.
+
+Faz sentido existir para desenvolvimento local. Não tem problema em manter.
+
+
+================================================================================
+PARTE 7 — OUTROS ARQUIVOS
+================================================================================
+
+package.json
+  Define o projeto Node.js com dependência apenas do "express" para o
+  server.js local. Correto e mínimo.
+
+vercel.json
+  Configura o Vercel para rotear /api/* para as serverless functions.
+  Correto.
+
+.vercelignore
+  Ignora server.js no deploy (faz sentido, é só para desenvolvimento local).
+
+patch_confidence.py
+  Script Python que parece ter sido usado para corrigir algo no código
+  em algum momento. Não faz parte do app em produção.
+  Pode ser deletado se não for mais necessário.
+
+push.bat
+  Script Windows para fazer git add, commit e push de uma vez.
+  Útil para desenvolvimento, não vai para produção.
+  Pode ficar, não prejudica nada.
+
+.gitignore
+  Ignora node_modules. Correto e mínimo.
+
+
+================================================================================
+PARTE 8 — RESUMO: O QUE PODE SER DELETADO
+================================================================================
+
+Com segurança, sem quebrar nada:
+
+NO script.js:
+  - Objeto PROFESSIONS inteiro (~10 linhas) — nunca usado
+  - Entrada duplicada de "psicologo" no LOCAL_FALLBACK_PROFILES
+  - "motoboy" duplicado dentro do array de terms de motorista
+  - Função collectHeaders (~6 linhas) — nunca chamada
+  - Função tryParseLooseJSON (~25 linhas) — não usada no fluxo atual
+  - Métodos do NimAI: normalizeFieldName, extractTextFromPayload (parcial),
+    extractMessageJSON, cleanJSONText, extractBracedJSON, parseJSONText,
+    findJSONText, parsePayloadObject, normalizeStruggle, normalizeDream,
+    validateProfilePayload, parseProfilePayload, safeParseResponseBody,
+    buildEstimationPrompt, extractSalaryFromText
+    (~250 linhas no total) — todos código morto
+  - Regex hardcoded de títulos antigos no renderMarkdown (~5 linhas)
+  - filterToastTag pode ser removido se o prompt não usar [TOAST:...]
+  - summary e conclusion no Analyzer se não forem exibidos na UI
+
+NO style.css:
+  - Classes de diagnóstico: .diagnosis-*, .grade-badge, .card-label,
+    .metric-list, .metric-item, .metric-top, .metric-bar-wrap, .metric-bar
+    (~80 linhas) — sem elementos correspondentes no HTML
+  - Comentário vazio "DIAGNOSTIC CONTAINER STYLES" no final
+
+NO projeto geral:
+  - patch_confidence.py — script de uso único, não faz parte do app
+
+
+================================================================================
+PARTE 9 — RESUMO: O QUE PODE SER MELHORADO
+================================================================================
+
+BUGS reais:
+  1. streamMessage não verifica response.ok antes de ler o stream.
+     Se a API retornar 401 ou 500, o chat pode travar silenciosamente.
+  
+  2. No passo 2 do wizard, voltar do passo 3 esconde o botão "Avançar"
+     e o usuário fica preso sem saber que precisa clicar em "Estimar Perfil".
+
+MELHORIAS de UX:
+  3. O confirm() nativo para "Nova Análise" é feio. Um modal simples
+     seria melhor.
+  
+  4. Não existe feedback visual quando o usuário edita renda/gastos no
+     passo 3 e a sobra fica negativa. Poderia mostrar um aviso em tempo real.
+  
+  5. O campo de reserva (f-reserve) não tem label explicando o que é
+     "reserva de emergência" para usuários que não conhecem o conceito.
+
+MELHORIAS de código:
+  6. server.js e api/chat.js têm lógica duplicada.
+  
+  7. A função triggerIAEstimation deveria se chamar triggerProfileEstimation
+     já que não usa mais IA.
+  
+  8. netWorth em finances é sempre igual a reserve. Ou remove ou implementa
+     de verdade (somando outros ativos).
+  
+  9. KEY_API no Storage existe mas não tem UI. Ou implementa um campo para
+     o usuário colocar a própria chave, ou remove.
+
+MELHORIAS de segurança:
+  10. api/chat.js não tem rate limiting. Qualquer um pode usar sua API key.
+      No Vercel, pode usar Edge Config ou KV para limitar por IP.
+
+FEATURES que fariam sentido adicionar:
+  11. Botão para editar os dados do perfil sem precisar recomeçar do zero.
+  12. Histórico de conversas separado por sessão.
+  13. Modo de simulação: "e se eu economizasse X% a mais por mês?"
+  14. Gráfico simples de progresso em direção à meta.
+
+
+================================================================================
+FIM DA ANÁLISE
+================================================================================
