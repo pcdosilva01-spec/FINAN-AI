@@ -207,6 +207,8 @@ input.error { border-color: var(--red) !important; animation: shake .3s ease; }
 .wizard-bar { height: 3px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 32px; }
 .wizard-bar-fill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--purple)); border-radius: 3px; transition: width .4s cubic-bezier(0.16, 1, 0.3, 1); }
 
+fieldset { border: none; padding: 0; margin: 0; min-width: 0; }
+
 .wiz-step { display: none; animation: slideIn .3s ease forwards; }
 .wiz-step.active { display: block; }
 .wiz-icon { font-size: 2.2rem; margin-bottom: 12px; }
@@ -292,7 +294,9 @@ input.error { border-color: var(--red) !important; animation: shake .3s ease; }
     margin-top: 1px;
 }
 
-.profile-quick-stats {
+/* .profile-quick-stats renomeado para .profile-stats — mantido para compatibilidade */
+.profile-quick-stats,
+.profile-stats {
     display: flex;
     gap: 8px;
     justify-content: space-between;
@@ -473,15 +477,6 @@ input.error { border-color: var(--red) !important; animation: shake .3s ease; }
     min-height: 100vh;
     overflow: hidden;
     background: linear-gradient(180deg, var(--bg) 0%, rgba(6, 8, 16, 0.95) 100%);
-}
-
-.chat-feed {
-    min-height: 0;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
 }
 
 .sofia-status {
