@@ -416,8 +416,8 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         if (!key || typeof key !== "string") return null;
         const normalized = normalizeText(key).replace(/\s+/g, "");
         const map = {
-            salary: "salary", income: "salary", salario: "salary", rendamensal: "salary", mensal: "salary", monthlysalary: "salary", grosssalary: "salary", receita: "salary", remuneracao: "salary", pagamento: "salary",
-            expenses: "expenses", cost: "expenses", gastos: "expenses", despesas: "expenses", custo: "expenses", gastosmensais: "expenses", despesasmensais: "expenses",
+            salary: "salary", income: "salary", salario: "salary", rendamensal: "salary", mensal: "salary", monthlysalary: "salary", monthlySalary: "salary", monthlyincome: "salary", grosssalary: "salary", receita: "salary", remuneracao: "salary", pagamento: "salary",
+            expenses: "expenses", monthlyexpenses: "expenses", monthlyExpenses: "expenses", monthly_expenses: "expenses", cost: "expenses", gastos: "expenses", despesas: "expenses", custo: "expenses", gastosmensais: "expenses", despesasmensais: "expenses",
             confidence: "confidence", confianca: "confidence", confidencepct: "confidence", confidencepercentage: "confidence", confidence_percentage: "confidence",
             struggle: "struggle", dificuldade: "struggle", principal: "struggle", problem: "struggle",
             dream: "dream", sonho: "dream", meta: "dream", objetivo: "dream"
@@ -440,10 +440,10 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
 
         if (Array.isArray(payload.choices) && payload.choices.length) {
             for (const choice of payload.choices) {
-                const text = choice?.message?.content || choice?.message?.text || choice?.text || choice?.delta?.content || choice?.delta?.text || choice?.output?.[0]?.content || choice?.output?.[0]?.text;
-                if (typeof text === "string") return text;
-                if (Array.isArray(text)) {
-                    const parts = text.map(item => typeof item === "string" ? item : item?.text || item?.content || "");
+                const candidate = choice?.message?.content || choice?.message?.text || choice?.text || choice?.delta?.content || choice?.delta?.text || choice?.output?.[0]?.content || choice?.output?.[0]?.text;
+                if (typeof candidate === "string") return candidate;
+                if (Array.isArray(candidate)) {
+                    const parts = candidate.map(item => typeof item === "string" ? item : item?.text || item?.content || "");
                     const joined = parts.filter(Boolean).join(" ").trim();
                     if (joined) return joined;
                 }
@@ -481,6 +481,38 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         if (payload.choices && typeof payload.choices === "object") return this.extractTextFromPayload(payload.choices);
 
         return null;
+    },
+
+    extractMessageJSON(payload) {
+        if (!payload || typeof payload !== "object") return null;
+        const choice = Array.isArray(payload.choices) ? payload.choices[0] : null;
+        if (!choice) return null;
+
+        const content = choice?.message?.content || choice?.message?.text || choice?.text || choice?.delta?.content || choice?.delta?.text;
+        if (typeof content === "string") return content;
+        if (Array.isArray(content)) {
+            const parts = content.map(item => typeof item === "string" ? item : item?.text || item?.content || "");
+            return parts.filter(Boolean).join(" ").trim() || null;
+        }
+        return null;
+    },
+
+    cleanJSONText(raw) {
+        if (raw == null) return null;
+        let text = String(raw);
+        text = text.replace(/```\s*json/i, "");
+        text = text.replace(/```/g, "");
+        text = text.trim();
+        return text;
+    },
+
+    extractBracedJSON(raw) {
+        if (raw == null) return null;
+        const text = String(raw);
+        const start = text.indexOf("{");
+        const end = text.lastIndexOf("}");
+        if (start === -1 || end === -1 || end <= start) return null;
+        return text.slice(start, end + 1);
     },
 
     findJSONText(payload) {
@@ -586,23 +618,48 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         }
 
         let candidate = null;
+        let extractedJSON = null;
+        let parsedJSON = null;
+        let content = null;
+        let choices = null;
+        let message = null;
+
         if (typeof payload === "string") {
-            const parsed = tryParseLooseJSON(payload);
-            if (!parsed) return { profile: null, reason: "JSON inválido", details: payload };
-            candidate = this.parsePayloadObject(parsed);
-            if (!candidate) return { profile: null, reason: "Campos salary/expenses/confidence ausentes", details: parsed };
-        } else if (typeof payload === "object") {
-            candidate = this.parsePayloadObject(payload);
+            extractedJSON = this.cleanJSONText(payload);
+            parsedJSON = tryParseLooseJSON(extractedJSON) || tryParseLooseJSON(this.extractBracedJSON(extractedJSON));
+            if (!parsedJSON) {
+                console.log("validateProfilePayload erro: JSON inválido", { parsedBody: payload, content: extractedJSON });
+                return { profile: null, reason: "JSON inválido", details: payload };
+            }
+            candidate = this.parsePayloadObject(parsedJSON);
             if (!candidate) {
-                let text = this.extractTextFromPayload(payload);
-                if (!text) {
-                    text = this.findJSONText(payload);
-                }
-                if (!text) return { profile: null, reason: "Resposta sem conteúdo JSON válido", details: payload };
-                const parsed = tryParseLooseJSON(text);
-                if (!parsed) return { profile: null, reason: "JSON inválido", details: text };
-                candidate = this.parsePayloadObject(parsed);
-                if (!candidate) return { profile: null, reason: "Campos salary/expenses/confidence ausentes", details: parsed };
+                console.log("validateProfilePayload erro: campos ausentes", { parsedBody: payload, parsedJSON });
+                return { profile: null, reason: "Campos salary/expenses/confidence ausentes", details: parsedJSON };
+            }
+        } else if (typeof payload === "object") {
+            choices = payload.choices;
+            message = payload?.choices?.[0]?.message;
+            content = this.extractMessageJSON(payload) || this.extractTextFromPayload(payload);
+            if (typeof content === "string") {
+                extractedJSON = this.cleanJSONText(content);
+                parsedJSON = tryParseLooseJSON(extractedJSON) || tryParseLooseJSON(this.extractBracedJSON(extractedJSON));
+            }
+
+            candidate = this.parsePayloadObject(payload);
+            if (!candidate && parsedJSON) {
+                candidate = this.parsePayloadObject(parsedJSON);
+            }
+
+            if (!candidate) {
+                console.log("validateProfilePayload erro: resposta sem conteúdo JSON válido", {
+                    parsedBody: payload,
+                    choices,
+                    message,
+                    content,
+                    extractedJSON,
+                    parsedJSON
+                });
+                return { profile: null, reason: "Resposta sem conteúdo JSON válido", details: payload };
             }
         } else {
             return { profile: null, reason: "Resposta inválida" };
