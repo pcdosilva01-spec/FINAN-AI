@@ -784,60 +784,7 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
     },
 
     async estimateProfile(profession) {
-        const headers = { "Content-Type": "application/json" };
-        const userKey = this.getUserKey();
-        if (userKey) headers["X-Override-Key"] = userKey;
-
-        const prompt = this.buildEstimationPrompt(profession);
-        const body = {
-            messages: [
-                { role: "system", content: prompt },
-                { role: "user", content: `Profissão: ${profession}` }
-            ],
-            temperature: 0.0,
-            top_p: 1,
-            stream: false
-        };
-
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
-
-        try {
-            console.debug("POST /api/chat", { profession, body });
-
-            const response = await fetch(PROXY_URL, {
-                method: "POST",
-                headers,
-                signal: controller.signal,
-                body: JSON.stringify(body)
-            });
-
-            const rawText = await response.text();
-            const parsedBody = this.safeParseResponseBody(rawText);
-            const answerText = this.extractTextFromPayload(parsedBody) || String(parsedBody || "");
-            const salary = this.extractSalaryFromText(answerText);
-
-            console.debug("Status HTTP:", response.status, response.statusText);
-            console.debug("Texto extraído:", answerText);
-            console.debug("Salário estimado:", salary);
-
-            if (response.ok && Number.isFinite(salary) && salary > 0) {
-                const fallback = getLocalFallbackProfile(profession);
-                return {
-                    income: Math.round(salary),
-                    cost: Math.round(fallback?.costAvg ?? Math.round(salary * 0.65)),
-                    struggle: fallback?.struggle || "sem_controle",
-                    dream: fallback?.dream || "imovel"
-                };
-            }
-
-            console.warn("Estimativa de salário inválida", { profession, answerText });
-        } catch (err) {
-            console.warn("Estimativa de salário falhou:", err.message || err);
-        } finally {
-            clearTimeout(timeout);
-        }
-
+        // Usa sempre o fallback local — rápido, sem depender da API
         return this.localEstimateProfile(profession);
     },
 
@@ -1284,7 +1231,7 @@ async function triggerIAEstimation() {
     btn.textContent = "Estimando perfil... ✦";
     btn.disabled = true;
 
-    Toast.show("info", "Sofia está trabalhando", "Estimando dados financeiros realistas via IA...");
+    Toast.show("info", "Analisando perfil", "Buscando dados para sua ocupação...");
 
     try {
         const estimation = await NimAI.estimateProfile(profession);
