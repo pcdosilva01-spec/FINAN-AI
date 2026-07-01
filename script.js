@@ -273,13 +273,15 @@ const Toast = {
         clearTimeout(this._t);
         clearInterval(this._i);
 
+        const wrap = el("toast-wrap");
         const t = el("toast");
         t.className = `toast t-${type}`;
         el("toast-icon").textContent  = { green: "✅", amber: "⚠️", red: "❌", info: "💡" }[type] || "💡";
         el("toast-title").textContent = title;
         el("toast-body").textContent  = body;
 
-        t.classList.remove("hidden");
+        wrap.classList.remove("hidden");
+        requestAnimationFrame(() => wrap.classList.add("visible"));
 
         const fill = el("toast-bar-fill");
         fill.style.width = "100%";
@@ -296,8 +298,9 @@ const Toast = {
     hide() {
         clearTimeout(this._t);
         clearInterval(this._i);
-        const t = el("toast");
-        t.classList.add("hidden");
+        const wrap = el("toast-wrap");
+        wrap.classList.remove("visible");
+        setTimeout(() => wrap.classList.add("hidden"), 350);
         el("toast-bar-fill").style.width = "100%";
     }
 };
@@ -1023,6 +1026,42 @@ const UI = {
         }
     },
 
+    // Animação letra por letra — batches via rAF para não travar
+    _typeChars(bubble, html, onDone) {
+        bubble.innerHTML = html;
+        const walker = document.createTreeWalker(bubble, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            if (node.textContent.trim()) textNodes.push(node);
+        }
+        const spans = [];
+        textNodes.forEach(tn => {
+            const chars = [...tn.textContent];
+            const frag = document.createDocumentFragment();
+            chars.forEach(ch => {
+                const s = document.createElement("span");
+                s.className = "char-anim";
+                s.textContent = ch;
+                frag.appendChild(s);
+                spans.push(s);
+            });
+            tn.replaceWith(frag);
+        });
+        let idx = 0;
+        const BATCH = 4;
+        const feed = el("chat-feed");
+        const tick = () => {
+            const end = Math.min(idx + BATCH, spans.length);
+            for (let i = idx; i < end; i++) spans[i].style.animationDelay = "0ms";
+            idx = end;
+            this._smartScroll(feed);
+            if (idx < spans.length) requestAnimationFrame(tick);
+            else if (onDone) onDone();
+        };
+        requestAnimationFrame(tick);
+    },
+
     appendMessage(role, sender, html) {
         const feed = el("chat-feed");
         const wasAtBottom = this._isAtBottom(feed);
@@ -1082,10 +1121,10 @@ const UI = {
                 clearInterval(statusTimer);
                 bubble.classList.remove("typing-cursor");
                 const parsed = this.filterToastTag(fullResponse);
-                bubble.innerHTML = this.renderMarkdown(parsed.text);
-                if (parsed.toast) {
-                    Toast.show(parsed.toast.type, parsed.toast.title, parsed.toast.msg);
-                }
+                const finalHtml = this.renderMarkdown(parsed.text);
+                this._typeChars(bubble, finalHtml, () => {
+                    if (parsed.toast) Toast.show(parsed.toast.type, parsed.toast.title, parsed.toast.msg);
+                });
 
                 this.chatHistory.push({ role: "assistant", content: parsed.text });
                 this.saveCurrentState();

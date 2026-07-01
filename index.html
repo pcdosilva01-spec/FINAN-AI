@@ -75,11 +75,11 @@
                     <p class="wiz-desc">Seus dados básicos para personalizar a consultoria.</p>
                     <div class="field">
                         <label for="f-name">Nome</label>
-                        <input id="f-name" type="text" placeholder="Ex: Ana Clara" autocomplete="given-name" required aria-required="true">
+                    <input id="f-name" type="text" placeholder="Ex: Ana Clara" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" required aria-required="true">
                     </div>
                     <div class="field">
                         <label for="f-age">Idade</label>
-                        <input id="f-age" type="number" placeholder="Ex: 28" min="12" max="90" autocomplete="off" required aria-required="true">
+                        <input id="f-age" type="number" placeholder="Ex: 28" min="12" max="90" autocomplete="new-password" required aria-required="true">
                     </div>
                 </div>
 
@@ -89,7 +89,7 @@
                     <p class="wiz-desc">Digite sua ocupação. Vamos estimar seu perfil financeiro automaticamente.</p>
                     <div class="field">
                         <label for="f-prof">Ocupação ou cargo</label>
-                        <input id="f-prof" type="text" placeholder="Ex: Professor, Desenvolvedor, Enfermeiro..." autocomplete="off" required aria-required="true">
+                        <input id="f-prof" type="text" placeholder="Ex: Professor, Desenvolvedor, Enfermeiro..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" required aria-required="true">
                     </div>
                     <button type="button" id="btn-estimate-profile" class="btn-primary btn-block">
                         Estimar Perfil ✦
@@ -237,7 +237,10 @@
                     id="chat-input"
                     type="text"
                     placeholder="Pergunte qualquer coisa sobre suas finanças..."
-                    autocomplete="off"
+                    autocomplete="new-password"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
                     maxlength="500"
                     aria-label="Digite sua pergunta"
                 >
@@ -249,14 +252,16 @@
     </div>
 
     <!-- TOAST -->
-    <div id="toast" class="toast hidden" role="alert" aria-live="assertive" aria-atomic="true">
-        <span id="toast-icon" aria-hidden="true">💡</span>
-        <div class="toast-content">
-            <strong id="toast-title"></strong>
-            <p id="toast-body"></p>
+    <div id="toast-wrap" class="toast-rgb-wrap hidden">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <span id="toast-icon" aria-hidden="true">💡</span>
+            <div class="toast-content">
+                <strong id="toast-title"></strong>
+                <p id="toast-body"></p>
+            </div>
+            <button id="toast-close" class="toast-close" aria-label="Fechar notificação" type="button">×</button>
+            <div class="toast-bar" aria-hidden="true"><div id="toast-bar-fill"></div></div>
         </div>
-        <button id="toast-close" class="toast-close" aria-label="Fechar notificação" type="button">×</button>
-        <div class="toast-bar" aria-hidden="true"><div id="toast-bar-fill"></div></div>
     </div>
 
     <!-- Modal de confirmação -->
