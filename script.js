@@ -750,7 +750,7 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
 ` +
             `Receberá apenas o nome de uma profissão.
 ` +
-            `Use seu conhecimento para estimar a renda líquida mensal média no Brasil e os gastos mensais médios dessa profissão.
+            `Use seu conhecimento para dizer a média salarial líquida mensal dessa profissão no Brasil.
 ` +
             `RESPONDA APENAS COM JSON VÁLIDO. NÃO ENVIE EXPLICAÇÕES, NÃO USE MARKDOWN, NÃO USE \`\`\`json.
 ` +
@@ -773,11 +773,15 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
 ` +
             `- expenses = inteiro
 ` +
+            `- salary deve ser a média líquida mensal estimada para a profissão informada
+` +
+            `- expenses representa gastos médios mensais plausíveis para essa profissão
+` +
             `- expenses nunca pode ser maior que salary
 ` +
-            `- expenses deve ficar entre 50% e 90% do salário
+            `- expenses deve ficar entre 50% e 90% do salary sempre que possível
 ` +
-            `- se a profissão for desconhecida, estime o valor mais plausível
+            `- se a profissão for desconhecida, use uma profissão similar para estimar o valor mais plausível
 
 ` +
             `Profissão: ${profession}
@@ -813,16 +817,16 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
 
         let lastReason = "";
 
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
             const prompt = this.buildEstimationPrompt(profession, attempt, lastReason);
             const body = {
                 messages: [
                     { role: "system", content: prompt },
-                    { role: "user", content: `Cargo: ${profession}` }
+                    { role: "user", content: `Profissão: ${profession}` }
                 ],
                 temperature: 0.0,
                 top_p: 1,
-                max_tokens: 120,
+                max_tokens: 100,
                 stream: false
             };
 
@@ -886,18 +890,22 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
         const userKey = this.getUserKey();
         if (userKey) headers["X-Override-Key"] = userKey;
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
+
         try {
             const response = await fetch(PROXY_URL, {
                 method: "POST",
                 headers,
+                signal: controller.signal,
                 body: JSON.stringify({
                     messages: [
                         { role: "system", content: systemPrompt },
                         ...messages
                     ],
-                    temperature: 0.12,
+                    temperature: 0.15,
                     top_p: 0.8,
-                    max_tokens: 700,
+                    max_tokens: 550,
                     stream: true
                 })
             });
@@ -934,6 +942,8 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
         } catch (err) {
             if (err.name === "AbortError") return;
             onError(`Erro de conexão: ${err.message}`);
+        } finally {
+            clearTimeout(timeout);
         }
     }
 };
