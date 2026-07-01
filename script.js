@@ -465,16 +465,63 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         return null;
     },
 
+    findJSONText(payload) {
+        if (payload == null) return null;
+        if (typeof payload === "string") {
+            const trimmed = payload.trim();
+            if ((trimmed.includes("salary") || trimmed.includes("expenses") || trimmed.includes("confidence")) && trimmed.startsWith("{")) {
+                return trimmed;
+            }
+            return null;
+        }
+        if (typeof payload !== "object") return null;
+
+        if (Array.isArray(payload)) {
+            for (const item of payload) {
+                const found = this.findJSONText(item);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        for (const [key, value] of Object.entries(payload)) {
+            if (typeof value === "string") {
+                const found = this.findJSONText(value);
+                if (found) return found;
+            }
+            if (typeof value === "object") {
+                const found = this.findJSONText(value);
+                if (found) return found;
+            }
+        }
+
+        return null;
+    },
+
     parsePayloadObject(payload) {
         if (!payload || typeof payload !== "object") return null;
         const normalized = {};
 
-        for (const [key, value] of Object.entries(payload)) {
-            const field = this.normalizeFieldName(key);
-            if (!field) continue;
-            normalized[field] = value;
-        }
+        const visit = (node) => {
+            if (node == null || typeof node !== "object") return;
+            if (Array.isArray(node)) {
+                for (const item of node) {
+                    visit(item);
+                }
+                return;
+            }
+            for (const [key, value] of Object.entries(node)) {
+                const field = this.normalizeFieldName(key);
+                if (field && normalized[field] == null) {
+                    normalized[field] = value;
+                }
+                if (typeof value === "object") {
+                    visit(value);
+                }
+            }
+        };
 
+        visit(payload);
         return Object.keys(normalized).length ? normalized : null;
     },
 
@@ -529,7 +576,10 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         } else if (typeof payload === "object") {
             candidate = this.parsePayloadObject(payload);
             if (!candidate) {
-                const text = this.extractTextFromPayload(payload);
+                let text = this.extractTextFromPayload(payload);
+                if (!text) {
+                    text = this.findJSONText(payload);
+                }
                 if (!text) return { profile: null, reason: "Resposta sem conteúdo JSON válido", details: payload };
                 const parsed = tryParseLooseJSON(text);
                 if (!parsed) return { profile: null, reason: "JSON inválido", details: text };
