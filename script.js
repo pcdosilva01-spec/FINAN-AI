@@ -439,12 +439,26 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         if (typeof payload.text === "string") return payload.text;
 
         if (Array.isArray(payload.choices) && payload.choices.length) {
-            const choice = payload.choices[0];
-            const text = choice?.message?.content || choice?.message?.text || choice?.text || choice?.delta?.content || choice?.delta?.text || choice?.output?.[0]?.content || choice?.output?.[0]?.text;
-            if (typeof text === "string") return text;
-            if (Array.isArray(text)) {
-                const parts = text.map(item => typeof item === "string" ? item : item?.text || item?.content || "");
-                return parts.filter(Boolean).join(" ").trim() || null;
+            for (const choice of payload.choices) {
+                const text = choice?.message?.content || choice?.message?.text || choice?.text || choice?.delta?.content || choice?.delta?.text || choice?.output?.[0]?.content || choice?.output?.[0]?.text;
+                if (typeof text === "string") return text;
+                if (Array.isArray(text)) {
+                    const parts = text.map(item => typeof item === "string" ? item : item?.text || item?.content || "");
+                    const joined = parts.filter(Boolean).join(" ").trim();
+                    if (joined) return joined;
+                }
+                if (choice?.message && typeof choice.message === "object") {
+                    const nested = this.extractTextFromPayload(choice.message);
+                    if (nested) return nested;
+                }
+                if (choice?.delta && typeof choice.delta === "object") {
+                    const nested = this.extractTextFromPayload(choice.delta);
+                    if (nested) return nested;
+                }
+                if (choice?.output && typeof choice.output === "object") {
+                    const nested = this.extractTextFromPayload(choice.output);
+                    if (nested) return nested;
+                }
             }
         }
 
@@ -456,11 +470,15 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
                 const parts = item.content.map(inner => typeof inner === "string" ? inner : inner?.text || "");
                 return parts.filter(Boolean).join(" ").trim() || null;
             }
+            const nested = this.extractTextFromPayload(item);
+            if (nested) return nested;
         }
 
         if (payload.data && typeof payload.data === "object") return this.extractTextFromPayload(payload.data);
         if (payload.response && typeof payload.response === "object") return this.extractTextFromPayload(payload.response);
         if (payload.result && typeof payload.result === "object") return this.extractTextFromPayload(payload.result);
+        if (payload.message && typeof payload.message === "object") return this.extractTextFromPayload(payload.message);
+        if (payload.choices && typeof payload.choices === "object") return this.extractTextFromPayload(payload.choices);
 
         return null;
     },
