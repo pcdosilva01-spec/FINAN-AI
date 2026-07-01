@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinLife AI — Consultoria Financeira com IA</title>
+    <meta name="description" content="Sofia, sua consultora financeira inteligente. Diagnósticos claros, simulação de cenários reais e orientação prática para agir hoje.">
+    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- GLOW AMBIENTAL PREMIUM -->
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- TELA SPLASH                             -->
+    <!-- ═══════════════════════════════════════ -->
+    <section id="splash" class="screen active">
+        <div class="splash-inner">
+            <div class="brand-mark">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7l10 5 10-5-10-5Z" stroke="url(#g1)" stroke-width="2.2" stroke-linejoin="round"/>
+                    <path d="M2 12l10 5 10-5" stroke="url(#g1)" stroke-width="2.2" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="g1" x1="2" y1="2" x2="22" y2="22">
+                            <stop stop-color="#22d3ee"/>
+                            <stop offset="1" stop-color="#a78bfa"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+
+            <div class="splash-badge">Consultoria Financeira com IA</div>
+            <h1>FinLife <span class="gradient-text">AI</span></h1>
+            <p class="splash-desc">
+                Converse com a <strong>Sofia</strong>, sua consultora de planejamento financeiro.<br>
+                Substitua planilhas complexas por orientações claras, diagnósticos objetivos e simulação de decisões reais.
+            </p>
+
+            <button type="button" id="btn-start" class="btn-primary btn-large">
+                Iniciar Diagnóstico
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+
+            <div class="splash-footer-note">Seus dados são protegidos e ficam salvos apenas localmente no seu dispositivo.</div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- WIZARD DE CADASTRO                      -->
+    <!-- ═══════════════════════════════════════ -->
+    <section id="wizard" class="screen">
+        <div class="wizard-wrap">
+            <div class="wizard-card glass">
+                
+                <div class="wizard-header">
+                    <div class="wizard-logo">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2L2 7l10 5 10-5-10-5Z" stroke="url(#gw)" stroke-width="2" stroke-linejoin="round"/>
+                            <defs><linearGradient id="gw" x1="2" y1="2" x2="22" y2="22"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
+                        </svg>
+                        <span>FinLife <strong class="gradient-text">AI</strong></span>
+                    </div>
+                    <div class="wizard-step-label" id="wiz-step-label">Passo 1 de 4</div>
+                </div>
+
+                <div class="wizard-bar"><div class="wizard-bar-fill" id="wiz-bar"></div></div>
+
+                <!-- Passo 1: Nome e Idade -->
+                <div class="wiz-step active" id="ws-1">
+                    <h2>Como você se chama?</h2>
+                    <p class="wiz-desc">Comece informando seus dados básicos para personalizarmos a consultoria.</p>
+                    <div class="field">
+                        <label for="f-name">Nome completo</label>
+                        <input id="f-name" type="text" placeholder="Ex: Ana Clara" autocomplete="off" required>
+                    </div>
+                    <div class="field">
+                        <label for="f-age">Sua idade</label>
+                        <input id="f-age" type="number" placeholder="Ex: 22" min="12" max="90" autocomplete="off" required>
+                    </div>
+                </div>
+
+                <!-- Passo 2: Profissão Livre -->
+                <div class="wiz-step" id="ws-2">
+                    <h2>Qual sua profissão ou ocupação?</h2>
+                    <p class="wiz-desc">Digite qualquer profissão. A Sofia usará IA para estimar seu perfil financeiro padrão.</p>
+                    <div class="field">
+                        <label for="f-prof">Sua ocupação / cargo</label>
+                        <input id="f-prof" type="text" placeholder="Ex: Professor de Inglês, Personal Trainer, Fotógrafo" autocomplete="off" required>
+                    </div>
+                    <button type="button" id="btn-estimate-profile" class="btn-primary btn-block">
+                        Estimar Perfil com IA ✦
+                    </button>
+                </div>
+
+                <!-- Passo 3: Confirmação de Renda e Gastos (Estimados por IA, editáveis) -->
+                <div class="wiz-step" id="ws-3">
+                    <h2>Valores estimados</h2>
+                    <p class="wiz-desc">Sofia estimou esses valores baseados na sua ocupação. Sinta-se livre para ajustar.</p>
+                    <div class="field-row">
+                        <div class="field">
+                            <label for="f-income">Renda mensal líquida (R$)</label>
+                            <input id="f-income" type="number" placeholder="Ex: 3500" min="200" autocomplete="off" required>
+                        </div>
+                        <div class="field">
+                            <label for="f-cost">Gastos mensais médios (R$)</label>
+                            <input id="f-cost" type="number" placeholder="Ex: 2400" min="100" autocomplete="off" required>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="f-reserve">Quanto tem guardado hoje? (Reserva)</label>
+                        <input id="f-reserve" type="number" placeholder="Ex: 2000" min="0" value="0" autocomplete="off">
+                    </div>
+                </div>
+
+                <!-- Passo 4: Metas e Dificuldade (Estimados por IA, editáveis) -->
+                <div class="wiz-step" id="ws-4">
+                    <h2>Metas e desafios</h2>
+                    <p class="wiz-desc">O propósito e a barreira do seu planejamento.</p>
+                    <div class="field">
+                        <label for="f-goal">Meta de patrimônio guardado (R$)</label>
+                        <input id="f-goal" type="number" placeholder="Ex: 80000" min="500" autocomplete="off" required>
+                    </div>
+                    <div class="field">
+                        <label for="f-dream">Seu maior sonho no momento</label>
+                        <select id="f-dream" autocomplete="off" required>
+                            <option value="" disabled selected>O que deseja realizar?</option>
+                            <option value="imovel">Comprar imóvel próprio</option>
+                            <option value="carro">Adquirir um veículo</option>
+                            <option value="viagem">Fazer uma grande viagem / intercâmbio</option>
+                            <option value="negocio">Abrir meu próprio negócio</option>
+                            <option value="independencia">Conquistar Independência Financeira</option>
+                            <option value="aposentadoria">Aposentadoria tranquila</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="f-struggle">Sua principal dificuldade hoje</label>
+                        <select id="f-struggle" autocomplete="off" required>
+                            <option value="" disabled selected>Escolha o seu principal desafio</option>
+                            <option value="gastos_impulso">Compras por impulso / consumo supérfluo</option>
+                            <option value="sem_controle">Falta de controle ou planilha de gastos</option>
+                            <option value="medo_investir">Medo de começar a investir / não sei onde aplicar</option>
+                            <option value="renda_baixa">Minha renda atual é muito baixa</option>
+                            <option value="dividas">Dívidas ativas ou contas atrasadas</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="wizard-actions">
+                    <button id="wiz-prev" class="btn-secondary" disabled>← Voltar</button>
+                    <button id="wiz-next" class="btn-primary">Avançar →</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- INTERFACE PRINCIPAL (CONSULTÓRIO)      -->
+    <!-- ═══════════════════════════════════════ -->
+    <div id="app" class="screen app-layout">
+
+        <!-- PAINEL DA ESQUERDA (SIDEBAR DE DIAGNÓSTICO) -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7l10 5 10-5-10-5Z" stroke="url(#gs)" stroke-width="2.2" stroke-linejoin="round"/>
+                    <defs><linearGradient id="gs" x1="2" y1="2" x2="22" y2="22"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
+                </svg>
+                <span>FinLife <strong class="gradient-text">AI</strong></span>
+            </div>
+
+            <!-- Identidade Compacta -->
+            <div class="profile-card glass">
+                <div class="profile-meta">
+                    <div class="avatar" id="lbl-avatar">?</div>
+                    <div>
+                        <div class="profile-name" id="lbl-name">—</div>
+                        <div class="profile-job" id="lbl-job">—</div>
+                    </div>
+                </div>
+                <div class="profile-quick-stats">
+                    <div class="stat-item"><span>Renda</span><strong class="c-cyan" id="lbl-income">—</strong></div>
+                    <div class="stat-item"><span>Gastos</span><strong class="c-red" id="lbl-cost">—</strong></div>
+                    <div class="stat-item"><span>Sobra</span><strong id="lbl-surplus">—</strong></div>
+                </div>
+            </div>
+
+
+            <!-- Recomeçar de forma discreta -->
+            <button type="button" id="btn-reset" class="btn-reset-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+                Nova Análise
+            </button>
+        </aside>
+
+        <!-- PAINEL DA DIREITA (ÁREA DE CHAT - PROTAGONISTA) -->
+        <main class="chat-area">
+            
+            <div class="chat-header-bar">
+                <div class="sofia-status">
+                    <span class="dot dot-on pulse"></span>
+                    <span>Consultora <strong>Sofia</strong></span>
+                </div>
+                <span class="chat-sub">Planejamento financeiro direto</span>
+            </div>
+
+            <!-- Feed de Mensagens -->
+            <div class="chat-feed" id="chat-feed" role="log" aria-live="polite" aria-label="Histórico de mensagens">
+                <!-- Balões injetados via JS -->
+            </div>
+
+
+            <!-- Campo de Texto Principal -->
+            <form class="chat-input-bar" id="chat-form">
+                <input id="chat-input" type="text" placeholder="Escreva sua dúvida financeira..." autocomplete="off">
+                <button type="submit" class="btn-send" id="btn-send" aria-label="Enviar mensagem">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </form>
+
+        </main>
+    </div>
+
+    <!-- NOTIFICAÇÃO TOAST FLUTUANTE PREMIUM -->
+    <div id="toast" class="toast hidden" role="status" aria-live="polite">
+        <span id="toast-icon">💡</span>
+        <div class="toast-content">
+            <strong id="toast-title">Notificação</strong>
+            <p id="toast-body">Mensagem de alerta da Sofia.</p>
+        </div>
+        <button id="toast-close" class="toast-close" aria-label="Fechar notificação">×</button>
+        <div class="toast-bar"><div id="toast-bar-fill"></div></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

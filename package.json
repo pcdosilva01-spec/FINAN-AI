@@ -1,0 +1,9 @@
+{
+  "name": "finlife-ai",
+  "version": "1.0.0",
+  "description": "FinLife AI - Mentor Financeiro de Elite",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}
