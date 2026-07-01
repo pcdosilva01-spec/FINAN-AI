@@ -428,17 +428,40 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
     extractTextFromPayload(payload) {
         if (payload == null) return null;
         if (typeof payload === "string") return payload;
-        if (typeof payload === "object") {
-            if (typeof payload.content === "string") return payload.content;
-            if (typeof payload.text === "string") return payload.text;
-            if (Array.isArray(payload.choices) && payload.choices.length) {
-                const choice = payload.choices[0];
-                return choice.message?.content || choice.text || choice.delta?.content || null;
-            }
-            if (typeof payload.output === "object" && Array.isArray(payload.output) && payload.output[0] && typeof payload.output[0].content === "string") {
-                return payload.output[0].content;
+        if (typeof payload !== "object") return null;
+
+        if (typeof payload.content === "string") return payload.content;
+        if (Array.isArray(payload.content)) {
+            const parts = payload.content.map(item => typeof item === "string" ? item : item?.text || item?.content || "");
+            return parts.filter(Boolean).join(" ").trim() || null;
+        }
+
+        if (typeof payload.text === "string") return payload.text;
+
+        if (Array.isArray(payload.choices) && payload.choices.length) {
+            const choice = payload.choices[0];
+            const text = choice?.message?.content || choice?.message?.text || choice?.text || choice?.delta?.content || choice?.delta?.text || choice?.output?.[0]?.content || choice?.output?.[0]?.text;
+            if (typeof text === "string") return text;
+            if (Array.isArray(text)) {
+                const parts = text.map(item => typeof item === "string" ? item : item?.text || item?.content || "");
+                return parts.filter(Boolean).join(" ").trim() || null;
             }
         }
+
+        if (Array.isArray(payload.output) && payload.output.length) {
+            const item = payload.output[0];
+            if (typeof item === "string") return item;
+            if (typeof item?.content === "string") return item.content;
+            if (Array.isArray(item?.content)) {
+                const parts = item.content.map(inner => typeof inner === "string" ? inner : inner?.text || "");
+                return parts.filter(Boolean).join(" ").trim() || null;
+            }
+        }
+
+        if (payload.data && typeof payload.data === "object") return this.extractTextFromPayload(payload.data);
+        if (payload.response && typeof payload.response === "object") return this.extractTextFromPayload(payload.response);
+        if (payload.result && typeof payload.result === "object") return this.extractTextFromPayload(payload.result);
+
         return null;
     },
 
@@ -618,17 +641,6 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         const headers = { "Content-Type": "application/json" };
         const userKey = this.getUserKey();
         if (userKey) headers["X-Override-Key"] = userKey;
-
-        const systemPrompt = `Você é um gerador de dados financeiros mockados em formato JSON.
-Dada a ocupação do usuário, retorne uma estimativa financeira realista.
-NUNCA use emojis.
-Campos obrigatórios no JSON de saída:
-- income: Renda mensal líquida realista no Brasil para esse cargo (número inteiro).
-- cost: Gasto mensal médio realista (número inteiro, deve ser menor que a renda, preferencialmente 60% a 80% da renda).
-- struggle: Identificador da principal dificuldade (escolha apenas um entre: "gastos_impulso", "sem_controle", "medo_investir", "renda_baixa", "dividas").
-- dream: Identificador do maior sonho (escolha apenas um entre: "imovel", "carro", "viagem", "negocio", "independencia", "aposentadoria").
-
-RETORNE APENAS O JSON VÁLIDO. NENHUM OUTRO TEXTO. NENHUM MARCADOR DE CÓDIGO (NÃO USE \`\`\`json).`;
 
         let lastReason = "";
         for (let attempt = 1; attempt <= 3; attempt++) {
