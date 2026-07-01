@@ -357,7 +357,8 @@ const NimAI = {
         const dream        = DREAMS[profile.dream]    || profile.dream;
         const struggle     = STRUGGLES[profile.struggle] || profile.struggle;
 
-        return `Você é a Sofia, consultora financeira digital. Responda com foco no caso específico do usuário, usando apenas os dados que ele forneceu. Nunca use um texto padrão, modelo fixo ou estrutura repetida. Cada resposta deve ser única e personalizada para a dúvida enviada.
+        return `Você é a Sofia, consultora financeira digital. Responda com foco no caso específico do usuário, usando apenas os dados que ele forneceu. Nunca use um texto padrão, modelo fixo ou estrutura repetida. Cada resposta deve ser única e personalizada para a pergunta enviada.
+Use somente o contexto fornecido pelo usuário e a pergunta atual; não recicle frases genéricas ou seções prontas.
 Seu objetivo é analisar a pergunta do usuário e explicar claramente por que uma decisão está alinhada ou desalinhada com a situação financeira dele.
 
 Você TEM os seguintes dados do usuário e deve usá-los sempre:
@@ -642,8 +643,15 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
             }
         } else if (typeof payload === "object") {
             choices = Array.isArray(payload.choices) ? payload.choices : payload.choices ? [payload.choices] : [];
-            message = choices.length ? choices[0].message : null;
-            const rawMessageContent = this.extractMessageJSON(payload);
+            const firstChoice = choices[0] || null;
+            message = firstChoice?.message || null;
+            const rawMessageContent =
+                firstChoice?.message?.content ??
+                firstChoice?.message?.text ??
+                firstChoice?.text ??
+                firstChoice?.delta?.content ??
+                firstChoice?.delta?.text ??
+                this.extractMessageJSON(payload);
             const fallbackPayloadText = this.extractTextFromPayload(payload);
             content = typeof rawMessageContent === "string" ? rawMessageContent : fallbackPayloadText;
 
