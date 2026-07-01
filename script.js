@@ -653,8 +653,8 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
                 return { profile: null, reason: "Campos salary/expenses ausentes", details: parsedJSON };
             }
         } else if (typeof payload === "object") {
-            choices = payload.choices;
-            message = choices && choices[0] ? choices[0].message : null;
+            choices = Array.isArray(payload.choices) ? payload.choices : payload.choices ? [payload.choices] : [];
+            message = choices.length ? choices[0].message : null;
             const rawMessageContent = this.extractMessageJSON(payload);
             const fallbackPayloadText = this.extractTextFromPayload(payload);
             content = typeof rawMessageContent === "string" ? rawMessageContent : fallbackPayloadText;
@@ -808,6 +808,7 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         if (userKey) headers["X-Override-Key"] = userKey;
 
         let lastReason = "";
+
         for (let attempt = 1; attempt <= 3; attempt++) {
             const prompt = this.buildEstimationPrompt(profession, attempt, lastReason);
             const body = {
@@ -825,6 +826,9 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
             const timeout = setTimeout(() => controller.abort(), 25000);
 
             try {
+                console.groupCollapsed(`Tentativa ${attempt}`);
+                console.debug("POST /api/chat", { attempt, profession, body });
+
                 const response = await fetch(PROXY_URL, {
                     method: "POST",
                     headers,
@@ -836,9 +840,6 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
                 const parsedBody = this.safeParseResponseBody(rawText);
                 const responseHeaders = collectHeaders(response.headers);
 
-                console.groupCollapsed(`NimAI estimateProfile tentativa ${attempt}`);
-                console.debug("Prompt enviado:", prompt);
-                console.debug("Payload enviado:", body);
                 console.debug("Status HTTP:", response.status, response.statusText);
                 console.debug("Headers:", responseHeaders);
                 console.debug("Body bruto:", rawText);
@@ -847,20 +848,24 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
 
                 if (!response.ok) {
                     lastReason = `HTTP ${response.status} ${response.statusText}`;
+                    console.warn(`Tentativa ${attempt} falhou: ${lastReason}`);
                     if (attempt < 3) continue;
                     break;
                 }
 
                 const validation = this.validateProfilePayload(parsedBody, profession);
-                if (validation.profile) return validation.profile;
+                if (validation.profile) {
+                    console.info("Sucesso", { attempt, profession, profile: validation.profile });
+                    return validation.profile;
+                }
 
                 lastReason = validation.reason || "Resposta inválida da IA";
-                console.warn(`Estimativa IA inválida (tentativa ${attempt}):`, validation.reason, validation.details);
+                console.warn(`Tentativa ${attempt} falhou: ${lastReason}`, validation.details);
                 if (attempt < 3) continue;
                 break;
             } catch (err) {
                 lastReason = err.name === "AbortError" ? "timeout" : err.message;
-                console.warn(`Erro de conexão na estimativa IA (tentativa ${attempt}):`, lastReason);
+                console.warn(`Tentativa ${attempt} falhou:`, lastReason);
                 if (attempt < 3) continue;
                 break;
             } finally {
@@ -868,7 +873,7 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
             }
         }
 
-        console.warn(`Estimativa IA falhou após 3 tentativas. Usando fallback local para '${profession}':`, lastReason);
+        console.error("Falha após 3 tentativas", { profession, lastReason });
         return this.localEstimateProfile(profession);
     },
 
