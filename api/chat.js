@@ -39,7 +39,6 @@ module.exports = (req, res) => {
 
         payload.model = process.env.NVIDIA_NIM_MODEL_ID || "openai/gpt-4o-mini";
         if (payload.stream !== false) payload.stream = true;
-        if (typeof payload.max_tokens !== "number") payload.max_tokens = 700;
 
         const bodyStr = JSON.stringify(payload);
 

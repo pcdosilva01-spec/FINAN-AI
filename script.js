@@ -746,53 +746,26 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
     },
 
     buildEstimationPrompt(profession, attempt = 1, lastReason = "") {
-        let prompt = `Você é um estimador de renda brasileiro.
+        return `Você é um especialista em salários no Brasil.
 ` +
             `Receberá apenas o nome de uma profissão.
 ` +
-            `Use seu conhecimento para dizer a média salarial líquida mensal dessa profissão no Brasil.
+            `Responda com a média salarial líquida mensal mais provável dessa profissão no Brasil.
 ` +
-            `RESPONDA APENAS COM JSON VÁLIDO. NÃO ENVIE EXPLICAÇÕES, NÃO USE MARKDOWN, NÃO USE \`\`\`json.
+            `Use texto simples e direto. Não envie JSON, tabelas ou explicações extras.
 ` +
-            `O único conteúdo da resposta deve ser um objeto JSON com os campos abaixo.
+            `Informe o valor em reais quando possível, por exemplo: R$ 8.200 ou 8200.
 ` +
-            `Formato obrigatório:
-` +
-            `{
-` +
-            `  "salary": 4300,
-` +
-            `  "expenses": 2600
-` +
-            `}
+            `Profissão: ${profession}`;
+    },
 
-` +
-            `Regras:
-` +
-            `- salary = inteiro
-` +
-            `- expenses = inteiro
-` +
-            `- salary deve ser a média líquida mensal estimada para a profissão informada
-` +
-            `- expenses representa gastos médios mensais plausíveis para essa profissão
-` +
-            `- expenses nunca pode ser maior que salary
-` +
-            `- expenses deve ficar entre 50% e 90% do salary sempre que possível
-` +
-            `- se a profissão for desconhecida, use uma profissão similar para estimar o valor mais plausível
-
-` +
-            `Profissão: ${profession}
-`;
-
-        if (attempt > 1 && lastReason) {
-            prompt += `A resposta anterior estava incorreta porque ${lastReason}. Envie novamente apenas o JSON solicitado.
-`;
+    extractSalaryFromText(text) {
+        if (!text || typeof text !== "string") return NaN;
+        const salaryMatch = text.match(/R\$\s*[0-9\.\,]+/i) || text.match(/\d{3,}(?:[\.,]\d{2})?/);
+        if (salaryMatch) {
+            return parseNumber(salaryMatch[0]);
         }
-
-        return prompt;
+        return parseNumber(text);
     },
 
     parseProfilePayload(payload, profession) {
@@ -815,73 +788,56 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
         const userKey = this.getUserKey();
         if (userKey) headers["X-Override-Key"] = userKey;
 
-        let lastReason = "";
+        const prompt = this.buildEstimationPrompt(profession);
+        const body = {
+            messages: [
+                { role: "system", content: prompt },
+                { role: "user", content: `Profissão: ${profession}` }
+            ],
+            temperature: 0.0,
+            top_p: 1,
+            stream: false
+        };
 
-        for (let attempt = 1; attempt <= 2; attempt++) {
-            const prompt = this.buildEstimationPrompt(profession, attempt, lastReason);
-            const body = {
-                messages: [
-                    { role: "system", content: prompt },
-                    { role: "user", content: `Profissão: ${profession}` }
-                ],
-                temperature: 0.0,
-                top_p: 1,
-                max_tokens: 100,
-                stream: false
-            };
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
 
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 25000);
+        try {
+            console.debug("POST /api/chat", { profession, body });
 
-            try {
-                console.groupCollapsed(`Tentativa ${attempt}`);
-                console.debug("POST /api/chat", { attempt, profession, body });
+            const response = await fetch(PROXY_URL, {
+                method: "POST",
+                headers,
+                signal: controller.signal,
+                body: JSON.stringify(body)
+            });
 
-                const response = await fetch(PROXY_URL, {
-                    method: "POST",
-                    headers,
-                    signal: controller.signal,
-                    body: JSON.stringify(body)
-                });
+            const rawText = await response.text();
+            const parsedBody = this.safeParseResponseBody(rawText);
+            const answerText = this.extractTextFromPayload(parsedBody) || String(parsedBody || "");
+            const salary = this.extractSalaryFromText(answerText);
 
-                const rawText = await response.text();
-                const parsedBody = this.safeParseResponseBody(rawText);
-                const responseHeaders = collectHeaders(response.headers);
+            console.debug("Status HTTP:", response.status, response.statusText);
+            console.debug("Texto extraído:", answerText);
+            console.debug("Salário estimado:", salary);
 
-                console.debug("Status HTTP:", response.status, response.statusText);
-                console.debug("Headers:", responseHeaders);
-                console.debug("Body bruto:", rawText);
-                console.debug("Body parseado:", parsedBody);
-                console.groupEnd();
-
-                if (!response.ok) {
-                    lastReason = `HTTP ${response.status} ${response.statusText}`;
-                    console.warn(`Tentativa ${attempt} falhou: ${lastReason}`);
-                    if (attempt < 3) continue;
-                    break;
-                }
-
-                const validation = this.validateProfilePayload(parsedBody, profession);
-                if (validation.profile) {
-                    console.info("Sucesso", { attempt, profession, profile: validation.profile });
-                    return validation.profile;
-                }
-
-                lastReason = validation.reason || "Resposta inválida da IA";
-                console.warn(`Tentativa ${attempt} falhou: ${lastReason}`, validation.details);
-                if (attempt < 3) continue;
-                break;
-            } catch (err) {
-                lastReason = err.name === "AbortError" ? "timeout" : err.message;
-                console.warn(`Tentativa ${attempt} falhou:`, lastReason);
-                if (attempt < 3) continue;
-                break;
-            } finally {
-                clearTimeout(timeout);
+            if (response.ok && Number.isFinite(salary) && salary > 0) {
+                const fallback = getLocalFallbackProfile(profession);
+                return {
+                    income: Math.round(salary),
+                    cost: Math.round(fallback?.costAvg ?? Math.round(salary * 0.65)),
+                    struggle: fallback?.struggle || "sem_controle",
+                    dream: fallback?.dream || "imovel"
+                };
             }
+
+            console.warn("Estimativa de salário inválida", { profession, answerText });
+        } catch (err) {
+            console.warn("Estimativa de salário falhou:", err.message || err);
+        } finally {
+            clearTimeout(timeout);
         }
 
-        console.error("Falha após 3 tentativas", { profession, lastReason });
         return this.localEstimateProfile(profession);
     },
 
@@ -905,7 +861,6 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
                     ],
                     temperature: 0.15,
                     top_p: 0.8,
-                    max_tokens: 550,
                     stream: true
                 })
             });

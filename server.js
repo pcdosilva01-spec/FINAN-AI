@@ -86,7 +86,6 @@ function proxyToNIM(req, res) {
         // Garante que o model está correto
         payload.model = NIM_MODEL;
         if (payload.stream !== false) payload.stream = true;
-        if (typeof payload.max_tokens !== "number") payload.max_tokens = 900;
 
         attemptProxy(payload, apiKey, res, 0);
     });
