@@ -1363,11 +1363,6 @@ function finishWizard() {
     UI.chatHistory = [];
     el("chat-feed").innerHTML = "";
     UI.showApp();
-
-    setTimeout(() => {
-        const firstPrompt = "Por favor, elabore meu diagnóstico inicial detalhado e me mostre por onde começar.";
-        UI.sendMessage(firstPrompt);
-    }, 400);
 }
 
 document.addEventListener("DOMContentLoaded", () => UI.init());
