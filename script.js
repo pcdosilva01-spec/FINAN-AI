@@ -261,6 +261,53 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
 [TOAST: tipo | título | mensagem]`;
     },
 
+    validateProfileResponse(payload) {
+        if (!payload || typeof payload !== "object") return null;
+        const income = Number(payload.income);
+        const cost = Number(payload.cost);
+        const struggle = typeof payload.struggle === "string" ? payload.struggle : "sem_controle";
+        const dream = typeof payload.dream === "string" ? payload.dream : "imovel";
+
+        if (!Number.isFinite(income) || !Number.isFinite(cost) || income <= 0 || cost <= 0 || cost >= income) {
+            return null;
+        }
+
+        return {
+            income: Math.round(income),
+            cost: Math.round(cost),
+            struggle: STRUGGLES[struggle] ? struggle : "sem_controle",
+            dream: DREAMS[dream] ? dream : "imovel"
+        };
+    },
+
+    localEstimateProfile(profession) {
+        const normalized = profession.toLowerCase();
+        const matches = (terms) => terms.some(term => normalized.includes(term));
+
+        const profiles = [
+            { terms: ["advogado", "advocacia", "jurídico", "juridico"], income: 7200, cost: 4800, struggle: "sem_controle", dream: "imovel" },
+            { terms: ["desenvolvedor", "programador", "engenheiro", "full stack", "front-end", "frontend", "back-end", "backend"], income: 9200, cost: 6200, struggle: "medo_investir", dream: "independencia" },
+            { terms: ["designer", "criativo", "ux", "ui", "ilustrador"], income: 5200, cost: 3500, struggle: "sem_controle", dream: "viagem" },
+            { terms: ["médico", "medico", "enfermeiro", "saúde", "saude", "dentista"], income: 11000, cost: 7200, struggle: "dividas", dream: "aposentadoria" },
+            { terms: ["estudante", "estagiário", "estagiario", "aprendiz"], income: 1700, cost: 1300, struggle: "sem_controle", dream: "viagem" },
+            { terms: ["autônomo", "autonomo", "freelancer", "empreendedor", "microempreendedor"], income: 4300, cost: 3000, struggle: "gastos_impulso", dream: "negocio" },
+            { terms: ["servidor", "público", "publico", "concursado"], income: 6800, cost: 4300, struggle: "sem_controle", dream: "imovel" },
+            { terms: ["comerciante", "loja", "vendas", "e-commerce", "vendedor"], income: 5600, cost: 3800, struggle: "renda_baixa", dream: "negocio" }
+        ];
+
+        const match = profiles.find(profile => matches(profile.terms));
+        if (match) return match;
+
+        const defaultIncome = Math.max(2200, Math.min(9000, 1200 + normalized.length * 70));
+        const defaultCost = Math.max(1200, Math.min(defaultIncome - 250, Math.round(defaultIncome * 0.68)));
+        return {
+            income: Math.round(defaultIncome),
+            cost: Math.round(defaultCost),
+            struggle: "sem_controle",
+            dream: "independencia"
+        };
+    },
+
     async estimateProfile(profession) {
         const headers = { "Content-Type": "application/json" };
         const userKey = this.getUserKey();
@@ -304,17 +351,29 @@ RETORNE APENAS O JSON VÁLIDO. NENHUM OUTRO TEXTO. NENHUM MARCADOR DE CÓDIGO (N
             }
 
             const data = await response.json();
-            return data;
+            const validated = this.validateProfileResponse(data);
+            if (validated) return validated;
+
+            if (typeof data === "string") {
+                try {
+                    const parsed = JSON.parse(data);
+                    const validatedString = this.validateProfileResponse(parsed);
+                    if (validatedString) return validatedString;
+                } catch {
+                    // continue to fallback
+                }
+            }
+
+            throw new Error("Resposta inválida da IA");
         } catch (err) {
+            console.warn("Estimativa IA falhou, usando fallback local:", err.message);
+            return this.localEstimateProfile(profession);
+        } finally {
             clearTimeout(timeout);
-            return {
-                income: 3200,
-                cost: 2400,
-                struggle: "sem_controle",
-                dream: "independencia"
-            };
         }
-    },    async streamMessage(systemPrompt, messages, onChunk, onDone, onError) {
+    },
+
+    async streamMessage(systemPrompt, messages, onChunk, onDone, onError) {
         const headers = { "Content-Type": "application/json" };
         const userKey = this.getUserKey();
         if (userKey) headers["X-Override-Key"] = userKey;
