@@ -70,11 +70,9 @@
                 </div>
 
                 <!-- Passo 1: Identificação -->
-                <fieldset class="wiz-step active" id="ws-1">
-                    <legend class="wiz-legend">
-                        <h2>Como você se chama?</h2>
-                        <p class="wiz-desc">Seus dados básicos para personalizar a consultoria.</p>
-                    </legend>
+                <div class="wiz-step active" id="ws-1">
+                    <h2>Como você se chama?</h2>
+                    <p class="wiz-desc">Seus dados básicos para personalizar a consultoria.</p>
                     <div class="field">
                         <label for="f-name">Nome</label>
                         <input id="f-name" type="text" placeholder="Ex: Ana Clara" autocomplete="given-name" required aria-required="true">
@@ -83,14 +81,12 @@
                         <label for="f-age">Idade</label>
                         <input id="f-age" type="number" placeholder="Ex: 28" min="12" max="90" autocomplete="off" required aria-required="true">
                     </div>
-                </fieldset>
+                </div>
 
                 <!-- Passo 2: Profissão -->
-                <fieldset class="wiz-step" id="ws-2">
-                    <legend class="wiz-legend">
-                        <h2>Qual é sua profissão?</h2>
-                        <p class="wiz-desc">Digite sua ocupação. Vamos estimar seu perfil financeiro automaticamente.</p>
-                    </legend>
+                <div class="wiz-step" id="ws-2">
+                    <h2>Qual é sua profissão?</h2>
+                    <p class="wiz-desc">Digite sua ocupação. Vamos estimar seu perfil financeiro automaticamente.</p>
                     <div class="field">
                         <label for="f-prof">Ocupação ou cargo</label>
                         <input id="f-prof" type="text" placeholder="Ex: Professor, Desenvolvedor, Enfermeiro..." autocomplete="off" required aria-required="true">
@@ -98,40 +94,36 @@
                     <button type="button" id="btn-estimate-profile" class="btn-primary btn-block">
                         Estimar Perfil ✦
                     </button>
-                </fieldset>
+                </div>
 
                 <!-- Passo 3: Renda e Gastos -->
-                <fieldset class="wiz-step" id="ws-3">
-                    <legend class="wiz-legend">
-                        <h2>Sua situação financeira</h2>
-                        <p class="wiz-desc">Valores estimados para sua profissão. Ajuste conforme sua realidade.</p>
-                    </legend>
+                <div class="wiz-step" id="ws-3">
+                    <h2>Sua situação financeira</h2>
+                    <p class="wiz-desc">Valores estimados para sua profissão. Ajuste conforme sua realidade.</p>
                     <div class="field-row">
                         <div class="field">
                             <label for="f-income">Renda mensal líquida (R$)</label>
-                            <input id="f-income" type="number" placeholder="Ex: 3.500" min="200" autocomplete="off" required aria-required="true">
+                            <input id="f-income" type="number" placeholder="Ex: 3500" min="200" autocomplete="off" required aria-required="true">
                         </div>
                         <div class="field">
                             <label for="f-cost">Gastos mensais (R$)</label>
-                            <input id="f-cost" type="number" placeholder="Ex: 2.400" min="0" autocomplete="off" required aria-required="true">
+                            <input id="f-cost" type="number" placeholder="Ex: 2400" min="0" autocomplete="off" required aria-required="true">
                         </div>
                     </div>
                     <div class="field">
                         <label for="f-reserve">Quanto você tem guardado hoje? (R$)</label>
-                        <input id="f-reserve" type="number" placeholder="Ex: 2.000 — pode ser 0" min="0" value="0" autocomplete="off">
+                        <input id="f-reserve" type="number" placeholder="Ex: 2000 — pode ser 0" min="0" value="0" autocomplete="off">
                     </div>
                     <div id="surplus-preview" class="surplus-preview" aria-live="polite"></div>
-                </fieldset>
+                </div>
 
                 <!-- Passo 4: Metas -->
-                <fieldset class="wiz-step" id="ws-4">
-                    <legend class="wiz-legend">
-                        <h2>Seus objetivos</h2>
-                        <p class="wiz-desc">O que você quer conquistar e o que está travando você hoje.</p>
-                    </legend>
+                <div class="wiz-step" id="ws-4">
+                    <h2>Seus objetivos</h2>
+                    <p class="wiz-desc">O que você quer conquistar e o que está travando você hoje.</p>
                     <div class="field">
                         <label for="f-goal">Meta de patrimônio (R$)</label>
-                        <input id="f-goal" type="number" placeholder="Ex: 80.000" min="500" autocomplete="off" required aria-required="true">
+                        <input id="f-goal" type="number" placeholder="Ex: 80000" min="500" autocomplete="off" required aria-required="true">
                     </div>
                     <div class="field">
                         <label for="f-dream">Seu maior sonho agora</label>
@@ -156,7 +148,7 @@
                             <option value="dividas">⚡ Dívidas ativas</option>
                         </select>
                     </div>
-                </fieldset>
+                </div>
 
                 <div class="wizard-actions">
                     <button id="wiz-prev" type="button" class="btn-secondary" disabled aria-label="Voltar ao passo anterior">← Voltar</button>
