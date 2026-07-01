@@ -275,7 +275,7 @@ const Toast = {
 
         const t = el("toast");
         t.className = `toast t-${type}`;
-        el("toast-icon").textContent  = { green: "🟢", amber: "⚠️", red: "🚨", info: "💡" }[type] || "💡";
+        el("toast-icon").textContent  = { green: "✅", amber: "⚠️", red: "❌", info: "💡" }[type] || "💡";
         el("toast-title").textContent = title;
         el("toast-body").textContent  = body;
 
@@ -719,8 +719,8 @@ Termine com uma recomendação clara e objetiva, como "Adie a compra" ou "Faça 
             return { profile: null, reason: `expenses negativo (${expenses})`, details: candidate };
         }
 
-        if (expenses > salary) {
-            return { profile: null, reason: `expenses maior que salary (${expenses} > ${salary})`, details: candidate };
+        if (expenses > salary * 1.5) {
+            return { profile: null, reason: `expenses muito maior que salary (${expenses} > ${salary})`, details: candidate };
         }
 
         const fallback = getLocalFallbackProfile(profession);
@@ -968,6 +968,15 @@ const UI = {
 
     setWizardStep(value) {
         this.wizardStep = Math.max(1, Math.min(WIZARD_TOTAL, value));
+        // Ao entrar no passo 4, recalcula a meta com base nos valores atuais do passo 3
+        if (value === 4) {
+            const income = parseFloat(el("f-income").value) || 3000;
+            const cost   = parseFloat(el("f-cost").value)   || 2000;
+            const surplus = income - cost;
+            // Meta = 12 meses de reserva de emergência + 12 meses de sobra
+            const suggestedGoal = Math.round((cost * 6 + Math.max(surplus, 0) * 12) / 1000) * 1000;
+            el("f-goal").value = suggestedGoal > 0 ? suggestedGoal : income * 12;
+        }
         updateWizardBar();
     },
 
@@ -983,9 +992,38 @@ const UI = {
     },
 
     appendAIIntro() {
-        this.appendMessage("ai", "Sofia", `Olá, <strong>${escapeHTML(this.state.profile.name)}</strong>! Eu sou a Sofia, sua consultora financeira. ` +
-            `Já analisei seus dados e estou pronta para falar o que você deve fazer em seguida.<br><br>` +
-            `Escreva sua dúvida para começarmos a agir agora.`);
+        const p = this.state.profile;
+        const m = Analyzer.compute(p, this.state.finances);
+        const dream = DREAMS[p.dream] || p.dream;
+        const surplus = m.surplus;
+        const surplusColor = surplus >= 0 ? "#10b981" : "#ef4444";
+        const surplusFmt = fmt(Math.abs(surplus));
+        const surplusLabel = surplus >= 0
+            ? `<span style="color:${surplusColor}">+${surplusFmt}/mês sobrando</span>`
+            : `<span style="color:${surplusColor}">-${surplusFmt}/mês no vermelho</span>`;
+
+        const tips = [];
+        if (surplus > 0) tips.push(`💰 Guarde pelo menos <strong>${fmt(Math.round(surplus * 0.5))}</strong> todo mês`);
+        if (p.goal > 0 && surplus > 0) {
+            const months = Math.ceil(p.goal / (surplus * 0.5));
+            tips.push(`🎯 Sua meta de <strong>${fmt(p.goal)}</strong> em ~<strong>${months} meses</strong> guardando metade da sobra`);
+        }
+        if (p.struggle === "gastos_impulso") tips.push(`🛑 Anote cada gasto antes de comprar — espere 24h para compras acima de <strong>${fmt(p.income * 0.05)}</strong>`);
+        if (p.struggle === "sem_controle") tips.push(`📋 Crie uma planilha simples: renda, gastos fixos, gastos variáveis`);
+        if (p.struggle === "medo_investir") tips.push(`📈 Comece com Tesouro Selic — seguro, líquido e rende mais que poupança`);
+        if (p.struggle === "dividas") tips.push(`⚡ Priorize quitar a dívida de maior juros primeiro`);
+        if (p.struggle === "renda_baixa") tips.push(`🚀 Foque em aumentar renda: freelas, cursos, segunda fonte`);
+
+        const tipsHtml = tips.length
+            ? `<ul style="margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px">${tips.map(t => `<li style="font-size:.83rem;color:#e2e8f0">→ ${t}</li>`).join("")}</ul>`
+            : "";
+
+        this.appendMessage("ai", "Sofia",
+            `<span style="color:#10b981;font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em">✦ Diagnóstico Inicial</span><br><br>` +
+            `Olá, <strong>${escapeHTML(p.name)}</strong>! Analisei seu perfil — ${surplusLabel}.<br><br>` +
+            `Seu sonho é <strong>${dream}</strong>. Aqui estão os primeiros passos:` +
+            tipsHtml +
+            `<br><span style="color:#64748b;font-size:.78rem">Pergunte qualquer coisa sobre suas finanças.</span>`);
     },
 
     saveCurrentState() {
@@ -1257,8 +1295,7 @@ async function triggerIAEstimation() {
         el("f-struggle").value = estimation.struggle || "gastos_impulso";
         el("f-dream").value    = estimation.dream || "imovel";
 
-        // Estima uma meta sugerida (por ex: 20x a renda anual ou similar)
-        el("f-goal").value = (estimation.income || 3000) * 24;
+        // Meta calculada após o usuário confirmar renda no passo 3
 
         Toast.show("green", "Perfil Estimado!", "Ajuste os valores sugeridos nos próximos passos.");
         
@@ -1278,7 +1315,6 @@ async function triggerIAEstimation() {
         el("f-cost").value    = 2400;
         el("f-struggle").value = "sem_controle";
         el("f-dream").value    = "independencia";
-        el("f-goal").value     = 75000;
 
         Toast.show("amber", "Sofia avisa", "Falha de conexão com a IA. Usando valores sugeridos padrão.");
         

@@ -827,18 +827,22 @@ input.error { border-color: var(--red) !important; animation: shake .3s ease; }
 
 .toast.t-green {
     border-left: 3px solid var(--green);
+    background: rgba(16, 185, 129, 0.06);
 }
 
 .toast.t-amber {
     border-left: 3px solid var(--amber);
+    background: rgba(245, 158, 11, 0.06);
 }
 
 .toast.t-red {
     border-left: 3px solid var(--red);
+    background: rgba(239, 68, 68, 0.06);
 }
 
 .toast.t-info {
     border-left: 3px solid var(--cyan);
+    background: rgba(6, 182, 212, 0.06);
 }
 
 /* Comparativos Prós/Contras da IA */
