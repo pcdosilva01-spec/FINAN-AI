@@ -280,6 +280,43 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
         };
     },
 
+    parseProfilePayload(payload) {
+        const direct = this.validateProfileResponse(payload);
+        if (direct) return direct;
+
+        if (payload && payload.error) {
+            return null;
+        }
+
+        const extractText = (value) => {
+            if (!value) return null;
+            if (typeof value === "string") return value;
+            if (typeof value === "object") {
+                return value.choices?.[0]?.message?.content
+                    || value.choices?.[0]?.text
+                    || value.choices?.[0]?.delta?.content
+                    || value.text
+                    || null;
+            }
+            return null;
+        };
+
+        const text = extractText(payload);
+        if (!text) return null;
+
+        const cleaned = text.trim()
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/```$/i, "")
+            .trim();
+
+        try {
+            const parsed = JSON.parse(cleaned);
+            return this.validateProfileResponse(parsed);
+        } catch {
+            return null;
+        }
+    },
+
     localEstimateProfile(profession) {
         const normalized = profession.toLowerCase();
         const matches = (terms) => terms.some(term => normalized.includes(term));
@@ -351,18 +388,8 @@ RETORNE APENAS O JSON VÁLIDO. NENHUM OUTRO TEXTO. NENHUM MARCADOR DE CÓDIGO (N
             }
 
             const data = await response.json();
-            const validated = this.validateProfileResponse(data);
+            const validated = this.parseProfilePayload(data);
             if (validated) return validated;
-
-            if (typeof data === "string") {
-                try {
-                    const parsed = JSON.parse(data);
-                    const validatedString = this.validateProfileResponse(parsed);
-                    if (validatedString) return validatedString;
-                } catch {
-                    // continue to fallback
-                }
-            }
 
             throw new Error("Resposta inválida da IA");
         } catch (err) {
