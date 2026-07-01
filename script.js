@@ -33,6 +33,157 @@ const STRUGGLES = {
     dividas:        "dívidas ativas ou contas atrasadas"
 };
 
+const LOCAL_FALLBACK_PROFILES = [
+    { terms: ["professor", "professora", "docente", "tutor", "educador", "historia", "matematica", "ingles", "portugues"], salaryAvg: 4300, costAvg: 2600, struggle: "sem_controle", dream: "imovel" },
+    { terms: ["medico", "medica", "médico", "médica"], salaryAvg: 12000, costAvg: 7200, struggle: "dividas", dream: "aposentadoria" },
+    { terms: ["enfermeiro", "enfermeira", "saude", "saude", "hospital", "clinica"], salaryAvg: 5800, costAvg: 3600, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["dentista", "odontologista"], salaryAvg: 10500, costAvg: 6500, struggle: "dividas", dream: "aposentadoria" },
+    { terms: ["psicologo", "psicóloga", "psicologa", "terapeuta"], salaryAvg: 6500, costAvg: 3900, struggle: "medo_investir", dream: "independencia" },
+    { terms: ["fisioterapeuta", "fisioterapia"], salaryAvg: 5200, costAvg: 3200, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["advogado", "advogada", "juridico", "jurídico", "advocacia", "defensor", "promotor"], salaryAvg: 8200, costAvg: 5200, struggle: "sem_controle", dream: "imovel" },
+    { terms: ["contador", "contadora", "contabilista", "contabilidade", "analista financeiro", "financeiro"], salaryAvg: 6100, costAvg: 3800, struggle: "sem_controle", dream: "imovel" },
+    { terms: ["engenheiro", "engenheira", "engenharia", "arquiteteto", "arquiteto", "arquiteta", "arquitetura"], salaryAvg: 9000, costAvg: 5800, struggle: "medo_investir", dream: "imovel" },
+    { terms: ["desenvolvedor", "desenvolvedora", "programador", "programadora", "dev", "software", "front-end", "frontend", "back-end", "backend", "fullstack", "full stack", "analista de sistemas", "sysadmin", "suporte tecnico"], salaryAvg: 9200, costAvg: 6200, struggle: "medo_investir", dream: "independencia" },
+    { terms: ["designer", "designer grafico", "designer ui", "designer ux", "ux", "ui", "ilustrador", "ilustradora", "publicitario", "publicitária"], salaryAvg: 5300, costAvg: 3400, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["fotografo", "fotografa", "cinegrafista", "produtor de conteudo", "criador de conteudo", "social media", "marketing digital"], salaryAvg: 4200, costAvg: 2700, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["vendedor", "vendedora", "comerciante", "lojista", "atendente", "atendente de loja"], salaryAvg: 4500, costAvg: 3000, struggle: "sem_controle", dream: "negocio" },
+    { terms: ["caixa", "balconista", "recepcionista", "assistente", "auxiliar administrativo", "administrativo", "auxiliar"], salaryAvg: 3200, costAvg: 2200, struggle: "sem_controle", dream: "imovel" },
+    { terms: ["garcom", "garçon", "garconete", "balconista de bar", "atendimento"], salaryAvg: 2400, costAvg: 1700, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["cozinheiro", "chef", "padeiro", "confeiteiro", "culinaria"], salaryAvg: 2600, costAvg: 1900, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["motorista", "motoboy", "motoboy", "uber", "taxista", "caminhoneiro", "motorista de aplicativo", "entregador"], salaryAvg: 3200, costAvg: 2300, struggle: "renda_baixa", dream: "carro" },
+    { terms: ["pedreiro", "eletricista", "encanador", "carpinteiro", "pintor", "mecanico", "soldador", "serralheiro", "marceneiro"], salaryAvg: 4300, costAvg: 2900, struggle: "sem_controle", dream: "imovel" },
+    { terms: ["cabeleireiro", "barbeiro", "esteticista", "manicure", "maquiador", "cosmetico", "beleza"], salaryAvg: 3300, costAvg: 2200, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["faxineiro", "faxineira", "diarista", "zelador", "caseiro", "domestica", "domestico"], salaryAvg: 1950, costAvg: 1500, struggle: "renda_baixa", dream: "viagem" },
+    { terms: ["cuidador", "cuidar", "babá", "baba", "cuidadora", "assistente pessoal"], salaryAvg: 2200, costAvg: 1550, struggle: "renda_baixa", dream: "viagem" },
+    { terms: ["estudante", "estagiario", "estagiária", "aprendiz", "jovem aprendiz"], salaryAvg: 1650, costAvg: 1250, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["autonomo", "autônomo", "freelancer", "empreendedor", "microempreendedor", "consultor", "coach", "influenciador", "influencer"], salaryAvg: 4500, costAvg: 3100, struggle: "gastos_impulso", dream: "negocio" },
+    { terms: ["servidor publico", "concursado", "publico", "servico publico", "policial", "militar", "bombeiro"], salaryAvg: 7200, costAvg: 4300, struggle: "sem_controle", dream: "imovel" },
+    { terms: ["jornalista", "repórter", "redator", "editor", "assessor de imprensa"], salaryAvg: 5200, costAvg: 3300, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["farmaceutico", "farmaceutica", "farmaceutico", "farmacia"], salaryAvg: 6200, costAvg: 3900, struggle: "medo_investir", dream: "aposentadoria" },
+    { terms: ["psicologo"], salaryAvg: 6500, costAvg: 3900, struggle: "medo_investir", dream: "independencia" },
+    { terms: ["logistica", "analista logistica", "transportadora"], salaryAvg: 5200, costAvg: 3200, struggle: "sem_controle", dream: "imovel" },
+    { terms: ["marketing", "analista de marketing", "coordenador marketing", "planejador"], salaryAvg: 5600, costAvg: 3500, struggle: "sem_controle", dream: "viagem" },
+    { terms: ["veterinario", "veterinaria", "vet", "zootecnista"], salaryAvg: 7200, costAvg: 4500, struggle: "medo_investir", dream: "imovel" },
+    { terms: ["cientista", "pesquisador", "pesquisa", "cientista de dados", "data scientist"], salaryAvg: 9800, costAvg: 6200, struggle: "medo_investir", dream: "independencia" },
+    { terms: ["analista", "business analyst", "analista de negocio", "consultor de negocio"], salaryAvg: 6400, costAvg: 4000, struggle: "sem_controle", dream: "imovel" },
+    { terms: ["programa", "programador"], salaryAvg: 9200, costAvg: 6200, struggle: "medo_investir", dream: "independencia" }
+];
+
+const GENERIC_FALLBACK_PROFILE = {
+    salaryAvg: 3200,
+    costAvg: 2200,
+    struggle: "sem_controle",
+    dream: "independencia"
+};
+
+function normalizeText(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+}
+
+function parseNumber(value) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value !== "string") return NaN;
+
+    let text = value.trim();
+    if (!text) return NaN;
+
+    text = text.replace(/R\$|BRL|\$|€|£|\s+/gi, "");
+    const hasComma = text.includes(",");
+    const hasDot = text.includes(".");
+
+    if (hasComma && hasDot) {
+        text = text.replace(/\./g, "").replace(/,/g, ".");
+    } else if (hasComma && !hasDot) {
+        const parts = text.split(",");
+        if (parts.length === 2 && parts[1].length === 2) {
+            text = parts.join(".");
+        } else {
+            text = text.replace(/,/g, "");
+        }
+    } else if (hasDot && !hasComma) {
+        const parts = text.split(".");
+        if (parts.length === 2 && parts[1].length === 3) {
+            text = parts.join("");
+        }
+    }
+
+    text = text.replace(/[^0-9.-]/g, "");
+    const number = Number(text);
+    return Number.isFinite(number) ? number : NaN;
+}
+
+function tryParseLooseJSON(raw) {
+    if (raw == null) return null;
+    let text = String(raw).trim();
+    text = text.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+
+    const braceMatch = text.match(/\{[\s\S]*\}/);
+    if (braceMatch) text = braceMatch[0];
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        const relaxed = text
+            .replace(/,\s*([}\]])/g, "$1")
+            .replace(/([{,])\s*([a-zA-Z0-9_\-]+)\s*:/g, '$1"$2":')
+            .replace(/:\s*'([^']*)'/g, ':"$1"')
+            .replace(/\"'/g, '"')
+            .replace(/\s*\n\s*/g, " ")
+            .trim();
+
+        try {
+            return JSON.parse(relaxed);
+        } catch {
+            return null;
+        }
+    }
+}
+
+function collectHeaders(headers) {
+    const result = {};
+    if (!headers || typeof headers.forEach !== "function") return result;
+    headers.forEach((value, key) => result[key] = value);
+    return result;
+}
+
+function getLocalFallbackProfile(profession) {
+    const normalized = normalizeText(profession);
+    if (!normalized) return GENERIC_FALLBACK_PROFILE;
+
+    for (const profile of LOCAL_FALLBACK_PROFILES) {
+        for (const term of profile.terms) {
+            const normalizedTerm = normalizeText(term);
+            if (!normalizedTerm) continue;
+            if (normalized === normalizedTerm || normalized.includes(` ${normalizedTerm} `) || normalized.startsWith(`${normalizedTerm} `) || normalized.endsWith(` ${normalizedTerm}`) || normalized.includes(normalizedTerm)) {
+                return profile;
+            }
+        }
+    }
+
+    let bestMatch = null;
+    let bestScore = 0;
+    for (const profile of LOCAL_FALLBACK_PROFILES) {
+        let score = 0;
+        for (const term of profile.terms) {
+            if (!term) continue;
+            const normalizedTerm = normalizeText(term);
+            if (normalized.includes(normalizedTerm)) score += 1;
+        }
+        if (score > bestScore) {
+            bestScore = score;
+            bestMatch = profile;
+        }
+    }
+
+    return bestMatch && bestScore > 0 ? bestMatch : GENERIC_FALLBACK_PROFILE;
+}
+
 
 // ============================================================================
 // UTILITÁRIOS
@@ -261,87 +412,205 @@ Se a conversa for sobre uma decisão específica (como celular quebrado, compra 
 [TOAST: tipo | título | mensagem]`;
     },
 
-    validateProfileResponse(payload) {
-        if (!payload || typeof payload !== "object") return null;
-        const income = Number(payload.income);
-        const cost = Number(payload.cost);
-        const struggle = typeof payload.struggle === "string" ? payload.struggle : "sem_controle";
-        const dream = typeof payload.dream === "string" ? payload.dream : "imovel";
+    normalizeFieldName(key) {
+        if (!key || typeof key !== "string") return null;
+        const normalized = normalizeText(key).replace(/\s+/g, "");
+        const map = {
+            salary: "salary", income: "salary", salario: "salary", rendamensal: "salary", mensal: "salary", monthlysalary: "salary", grosssalary: "salary", receita: "salary", remuneracao: "salary", pagamento: "salary",
+            expenses: "expenses", cost: "expenses", gastos: "expenses", despesas: "expenses", custo: "expenses", gastosmensais: "expenses", despesasmensais: "expenses",
+            confidence: "confidence", confianca: "confidence", confidencepct: "confidence", confidencepercentage: "confidence", confidence_percentage: "confidence",
+            struggle: "struggle", dificuldade: "struggle", principal: "struggle", problem: "struggle",
+            dream: "dream", sonho: "dream", meta: "dream", objetivo: "dream"
+        };
+        return map[normalized] || null;
+    },
 
-        if (!Number.isFinite(income) || !Number.isFinite(cost) || income <= 0 || cost <= 0 || cost >= income) {
-            return null;
+    extractTextFromPayload(payload) {
+        if (payload == null) return null;
+        if (typeof payload === "string") return payload;
+        if (typeof payload === "object") {
+            if (typeof payload.content === "string") return payload.content;
+            if (typeof payload.text === "string") return payload.text;
+            if (Array.isArray(payload.choices) && payload.choices.length) {
+                const choice = payload.choices[0];
+                return choice.message?.content || choice.text || choice.delta?.content || null;
+            }
+            if (typeof payload.output === "object" && Array.isArray(payload.output) && payload.output[0] && typeof payload.output[0].content === "string") {
+                return payload.output[0].content;
+            }
+        }
+        return null;
+    },
+
+    parsePayloadObject(payload) {
+        if (!payload || typeof payload !== "object") return null;
+        const normalized = {};
+
+        for (const [key, value] of Object.entries(payload)) {
+            const field = this.normalizeFieldName(key);
+            if (!field) continue;
+            normalized[field] = value;
         }
 
+        return Object.keys(normalized).length ? normalized : null;
+    },
+
+    normalizeStruggle(value) {
+        if (!value || typeof value !== "string") return null;
+        const valueKey = normalizeText(value).replace(/\s+/g, "");
+        const mapping = {
+            gastos_impulso: ["gastosimpulso", "gasto", "impulso", "descontrole"],
+            sem_controle: ["semcontrole", "descontrole", "falta de controle"],
+            medo_investir: ["medoinvestir", "medo investir", "investir", "investimentos"],
+            renda_baixa: ["rendabaixa", "renda baixa", "baixo salario", "salario baixo"],
+            dividas: ["dividas", "divida", "divida", "dividas"]
+        };
+
+        for (const [key, aliases] of Object.entries(mapping)) {
+            if (aliases.some(alias => valueKey.includes(alias))) return key;
+        }
+
+        return STRUGGLES[valueKey] ? valueKey : null;
+    },
+
+    normalizeDream(value) {
+        if (!value || typeof value !== "string") return null;
+        const valueKey = normalizeText(value).replace(/\s+/g, "");
+        const mapping = {
+            imovel: ["imovel", "casa", "apartamento", "moradia"],
+            carro: ["carro", "veiculo", "automovel", "auto"],
+            viagem: ["viagem", "viajar", "trip", "turismo"],
+            negocio: ["negocio", "empreender", "empresa", "startup"],
+            independencia: ["independencia", "liberdade", "autonomia"],
+            aposentadoria: ["aposentadoria", "aposentar"]
+        };
+
+        for (const [key, aliases] of Object.entries(mapping)) {
+            if (aliases.some(alias => valueKey.includes(alias))) return key;
+        }
+
+        return DREAMS[valueKey] ? valueKey : null;
+    },
+
+    validateProfilePayload(payload, profession) {
+        if (payload == null) {
+            return { profile: null, reason: "Resposta vazia" };
+        }
+
+        let candidate = null;
+        if (typeof payload === "string") {
+            const parsed = tryParseLooseJSON(payload);
+            if (!parsed) return { profile: null, reason: "JSON inválido", details: payload };
+            candidate = this.parsePayloadObject(parsed);
+            if (!candidate) return { profile: null, reason: "Campos salary/expenses/confidence ausentes", details: parsed };
+        } else if (typeof payload === "object") {
+            candidate = this.parsePayloadObject(payload);
+            if (!candidate) {
+                const text = this.extractTextFromPayload(payload);
+                if (!text) return { profile: null, reason: "Resposta sem conteúdo JSON válido", details: payload };
+                const parsed = tryParseLooseJSON(text);
+                if (!parsed) return { profile: null, reason: "JSON inválido", details: text };
+                candidate = this.parsePayloadObject(parsed);
+                if (!candidate) return { profile: null, reason: "Campos salary/expenses/confidence ausentes", details: parsed };
+            }
+        } else {
+            return { profile: null, reason: "Resposta inválida" };
+        }
+
+        const salary = parseNumber(candidate.salary ?? candidate.income ?? candidate.salario ?? candidate.monthlysalary ?? candidate.grosssalary ?? candidate.renda ?? candidate.receita ?? candidate.remuneracao ?? candidate.pagamento);
+        const expenses = parseNumber(candidate.expenses ?? candidate.cost ?? candidate.gastos ?? candidate.despesas ?? candidate.custo ?? candidate.gastosmensais ?? candidate.despesasmensais);
+        const confidence = parseNumber(candidate.confidence ?? candidate.confianca ?? candidate.confidencepct ?? candidate.confidencepercentage ?? candidate.confidence_percentage);
+
+        if (!Number.isFinite(salary)) {
+            return { profile: null, reason: "Campo salary ausente ou inválido", details: candidate };
+        }
+
+        if (!Number.isFinite(expenses)) {
+            return { profile: null, reason: "Campo expenses ausente ou inválido", details: candidate };
+        }
+
+        if (!Number.isFinite(confidence)) {
+            return { profile: null, reason: "Campo confidence ausente ou inválido", details: candidate };
+        }
+
+        if (salary < 500 || salary > 150000) {
+            return { profile: null, reason: `salary fora da faixa permitida (${salary})`, details: candidate };
+        }
+
+        if (expenses < 0) {
+            return { profile: null, reason: `expenses negativo (${expenses})`, details: candidate };
+        }
+
+        if (expenses > salary) {
+            return { profile: null, reason: `expenses maior que salary (${expenses} > ${salary})`, details: candidate };
+        }
+
+        if (confidence < 0 || confidence > 100) {
+            return { profile: null, reason: `confidence fora da faixa (0-100): ${confidence})`, details: candidate };
+        }
+
+        const fallback = getLocalFallbackProfile(profession);
+        const struggle = this.normalizeStruggle(candidate.struggle) || fallback.struggle;
+        const dream = this.normalizeDream(candidate.dream) || fallback.dream;
+
         return {
-            income: Math.round(income),
-            cost: Math.round(cost),
-            struggle: STRUGGLES[struggle] ? struggle : "sem_controle",
-            dream: DREAMS[dream] ? dream : "imovel"
+            profile: {
+                income: Math.round(salary),
+                cost: Math.round(expenses),
+                struggle,
+                dream,
+                confidence: Math.round(confidence)
+            }
         };
     },
 
-    parseProfilePayload(payload) {
-        const direct = this.validateProfileResponse(payload);
-        if (direct) return direct;
-
-        if (payload && payload.error) {
-            return null;
-        }
-
-        const extractText = (value) => {
-            if (!value) return null;
-            if (typeof value === "string") return value;
-            if (typeof value === "object") {
-                return value.choices?.[0]?.message?.content
-                    || value.choices?.[0]?.text
-                    || value.choices?.[0]?.delta?.content
-                    || value.text
-                    || null;
-            }
-            return null;
-        };
-
-        const text = extractText(payload);
-        if (!text) return null;
-
-        const cleaned = text.trim()
-            .replace(/^```(?:json)?\s*/i, "")
-            .replace(/```$/i, "")
-            .trim();
-
+    safeParseResponseBody(rawText) {
         try {
-            const parsed = JSON.parse(cleaned);
-            return this.validateProfileResponse(parsed);
+            return JSON.parse(rawText);
         } catch {
-            return null;
+            return rawText;
         }
+    },
+
+    buildEstimationPrompt(profession, attempt = 1, lastReason = "") {
+        let prompt = `Você é um gerador de estimativas financeiras para profissões no Brasil.\n` +
+            `Responda APENAS com UM objeto JSON válido e NADA MAIS.\n` +
+            `Não use markdown, não use \`\`\`, não escreva explicações, não use listas.\n` +
+            `Retorne exatamente este formato:\n` +
+            `{
+` +
+            `  "salary": 3200,\n` +
+            `  "expenses": 2200,\n` +
+            `  "confidence": 92\n` +
+            `}\n\n` +
+            `Campos obrigatórios:\n` +
+            `- salary: salário líquido mensal no Brasil (inteiro)\n` +
+            `- expenses: gastos mensais médios (inteiro, menor ou igual ao salário)\n` +
+            `- confidence: inteiro entre 0 e 100\n\n` +
+            `Opcionalmente, você pode incluir:\n` +
+            `- struggle: dificuldade principal (gastos_impulso, sem_controle, medo_investir, renda_baixa, dividas)\n` +
+            `- dream: maior sonho (imovel, carro, viagem, negocio, independencia, aposentadoria)\n\n` +
+            `Cargo: ${profession}\n`;
+
+        if (attempt > 1 && lastReason) {
+            prompt += `A resposta anterior estava incorreta porque ${lastReason}. Envie novamente apenas o JSON solicitado.\n`;
+        }
+
+        return prompt;
+    },
+
+    parseProfilePayload(payload, profession) {
+        const validation = this.validateProfilePayload(payload, profession);
+        return validation.profile || null;
     },
 
     localEstimateProfile(profession) {
-        const normalized = profession.toLowerCase();
-        const matches = (terms) => terms.some(term => normalized.includes(term));
-
-        const profiles = [
-            { terms: ["advogado", "advocacia", "jurídico", "juridico"], income: 7200, cost: 4800, struggle: "sem_controle", dream: "imovel" },
-            { terms: ["desenvolvedor", "programador", "engenheiro", "full stack", "front-end", "frontend", "back-end", "backend"], income: 9200, cost: 6200, struggle: "medo_investir", dream: "independencia" },
-            { terms: ["designer", "criativo", "ux", "ui", "ilustrador"], income: 5200, cost: 3500, struggle: "sem_controle", dream: "viagem" },
-            { terms: ["médico", "medico", "enfermeiro", "saúde", "saude", "dentista"], income: 11000, cost: 7200, struggle: "dividas", dream: "aposentadoria" },
-            { terms: ["estudante", "estagiário", "estagiario", "aprendiz"], income: 1700, cost: 1300, struggle: "sem_controle", dream: "viagem" },
-            { terms: ["autônomo", "autonomo", "freelancer", "empreendedor", "microempreendedor"], income: 4300, cost: 3000, struggle: "gastos_impulso", dream: "negocio" },
-            { terms: ["servidor", "público", "publico", "concursado"], income: 6800, cost: 4300, struggle: "sem_controle", dream: "imovel" },
-            { terms: ["comerciante", "loja", "vendas", "e-commerce", "vendedor"], income: 5600, cost: 3800, struggle: "renda_baixa", dream: "negocio" }
-        ];
-
-        const match = profiles.find(profile => matches(profile.terms));
-        if (match) return match;
-
-        const defaultIncome = Math.max(2200, Math.min(9000, 1200 + normalized.length * 70));
-        const defaultCost = Math.max(1200, Math.min(defaultIncome - 250, Math.round(defaultIncome * 0.68)));
+        const profile = getLocalFallbackProfile(profession);
         return {
-            income: Math.round(defaultIncome),
-            cost: Math.round(defaultCost),
-            struggle: "sem_controle",
-            dream: "independencia"
+            income: Math.round(profile.salaryAvg),
+            cost: Math.round(profile.costAvg),
+            struggle: profile.struggle,
+            dream: profile.dream
         };
     },
 
@@ -361,43 +630,69 @@ Campos obrigatórios no JSON de saída:
 
 RETORNE APENAS O JSON VÁLIDO. NENHUM OUTRO TEXTO. NENHUM MARCADOR DE CÓDIGO (NÃO USE \`\`\`json).`;
 
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
+        let lastReason = "";
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            const prompt = this.buildEstimationPrompt(profession, attempt, lastReason);
+            const body = {
+                messages: [
+                    { role: "system", content: prompt },
+                    { role: "user", content: `Cargo: ${profession}` }
+                ],
+                temperature: 0.0,
+                top_p: 1,
+                max_tokens: 120,
+                stream: false
+            };
 
-        try {
-            const response = await fetch(PROXY_URL, {
-                method: "POST",
-                headers,
-                signal: controller.signal,
-                body: JSON.stringify({
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Cargo: ${profession}` }
-                    ],
-                    temperature: 0.0,
-                    top_p: 1,
-                    max_tokens: 120,
-                    stream: false
-                })
-            });
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 25000);
 
-            clearTimeout(timeout);
+            try {
+                const response = await fetch(PROXY_URL, {
+                    method: "POST",
+                    headers,
+                    signal: controller.signal,
+                    body: JSON.stringify(body)
+                });
 
-            if (!response.ok) {
-                throw new Error(`Status ${response.status}`);
+                const rawText = await response.text();
+                const parsedBody = this.safeParseResponseBody(rawText);
+                const responseHeaders = collectHeaders(response.headers);
+
+                console.groupCollapsed(`NimAI estimateProfile tentativa ${attempt}`);
+                console.debug("Prompt enviado:", prompt);
+                console.debug("Payload enviado:", body);
+                console.debug("Status HTTP:", response.status, response.statusText);
+                console.debug("Headers:", responseHeaders);
+                console.debug("Body bruto:", rawText);
+                console.debug("Body parseado:", parsedBody);
+                console.groupEnd();
+
+                if (!response.ok) {
+                    lastReason = `HTTP ${response.status} ${response.statusText}`;
+                    if (attempt < 3) continue;
+                    break;
+                }
+
+                const validation = this.validateProfilePayload(parsedBody, profession);
+                if (validation.profile) return validation.profile;
+
+                lastReason = validation.reason || "Resposta inválida da IA";
+                console.warn(`Estimativa IA inválida (tentativa ${attempt}):`, validation.reason, validation.details);
+                if (attempt < 3) continue;
+                break;
+            } catch (err) {
+                lastReason = err.name === "AbortError" ? "timeout" : err.message;
+                console.warn(`Erro de conexão na estimativa IA (tentativa ${attempt}):`, lastReason);
+                if (attempt < 3) continue;
+                break;
+            } finally {
+                clearTimeout(timeout);
             }
-
-            const data = await response.json();
-            const validated = this.parseProfilePayload(data);
-            if (validated) return validated;
-
-            throw new Error("Resposta inválida da IA");
-        } catch (err) {
-            console.warn("Estimativa IA falhou, usando fallback local:", err.message);
-            return this.localEstimateProfile(profession);
-        } finally {
-            clearTimeout(timeout);
         }
+
+        console.warn(`Estimativa IA falhou após 3 tentativas. Usando fallback local para '${profession}':`, lastReason);
+        return this.localEstimateProfile(profession);
     },
 
     async streamMessage(systemPrompt, messages, onChunk, onDone, onError) {
